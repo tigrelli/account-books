@@ -17,6 +17,7 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
+    "supabase": "^2.107.0",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   }
