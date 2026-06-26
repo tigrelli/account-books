@@ -2,6 +2,5 @@
   "buildCommand": "pnpm --filter @account-books/web build",
   "outputDirectory": "apps/main/web/.next",
   "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "nextjs",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/main/web/ packages/"
+  "framework": "nextjs"
 }
