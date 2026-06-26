@@ -94,12 +94,18 @@ importers:
 
   packages/event-contracts:
     devDependencies:
+      '@account-books/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
 
   packages/supabase-client:
     dependencies:
+      '@account-books/types':
+        specifier: workspace:*
+        version: link:../types
       '@supabase/ssr':
         specifier: ^0.6.1
         version: 0.6.1(@supabase/supabase-js@2.108.2)
@@ -110,6 +116,12 @@ importers:
       '@account-books/config':
         specifier: workspace:*
         version: link:../config
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      next:
+        specifier: 16.2.9
+        version: 16.2.9(@babel/core@7.29.7)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       typescript:
         specifier: ^5.8.3
         version: 5.9.3

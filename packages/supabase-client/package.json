@@ -14,11 +14,17 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@account-books/types": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.0"
   },
+  "peerDependencies": {
+    "next": ">=15.0.0"
+  },
   "devDependencies": {
     "@account-books/config": "workspace:*",
+    "@types/node": "^20",
+    "next": "16.2.9",
     "typescript": "^5.8.3"
   }
 }

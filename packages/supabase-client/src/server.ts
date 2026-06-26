@@ -1,6 +1,8 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@account-books/types";
+
+type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 /**
  * Server Component / Server Action / Route Handler에서 사용하는 Supabase 클라이언트.
@@ -17,10 +19,12 @@ export async function createSupabaseServerClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           try {
+            // SerializeOptions(@supabase/ssr)와 ResponseCookie(Next.js)의 타입 불일치를
+            // 객체 스프레드로 우회 — 런타임 동작은 동일
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              cookieStore.set({ name, value, ...options });
             });
           } catch {
             // Server Component에서 호출된 경우 쿠키 쓰기 무시 (읽기 전용)
@@ -47,10 +51,10 @@ export async function createSupabaseAdminClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              cookieStore.set({ name, value, ...options });
             });
           } catch {
             // no-op
