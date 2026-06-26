@@ -10,7 +10,12 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
+  "peerDependencies": {
+    "react": ">=19.0.0"
+  },
   "devDependencies": {
+    "@account-books/config": "workspace:*",
+    "@types/react": "^19",
     "typescript": "^5.8.3"
   }
 }

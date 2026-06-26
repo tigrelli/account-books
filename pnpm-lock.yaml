@@ -78,6 +78,8 @@ importers:
 
   packages/config: {}
 
+  packages/config/tsconfig: {}
+
   packages/event-contracts:
     devDependencies:
       typescript:
@@ -92,18 +94,34 @@ importers:
 
   packages/types:
     devDependencies:
+      '@account-books/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
 
   packages/ui:
+    dependencies:
+      react:
+        specifier: '>=19.0.0'
+        version: 19.2.4
     devDependencies:
+      '@account-books/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/react':
+        specifier: ^19
+        version: 19.2.17
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
 
   packages/utils:
     devDependencies:
+      '@account-books/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
