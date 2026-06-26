@@ -7,13 +7,16 @@
   },
   "scripts": {
     "lint": "eslint",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@account-books/config": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.62.0"
+    "typescript-eslint": "^8.62.0",
+    "vitest": "^4.1.9"
   }
 }
