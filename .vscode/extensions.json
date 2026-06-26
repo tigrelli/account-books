@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-typescript-next",
+    "supabase.supabase-vscode",
+    "ms-playwright.playwright",
+    "vitest.explorer",
+    "aaron-bond.better-comments",
+    "christian-kohler.path-intellisense"
+  ]
+}
