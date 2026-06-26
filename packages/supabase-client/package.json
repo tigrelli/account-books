@@ -3,14 +3,22 @@
   "version": "0.0.1",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./server": "./src/server.ts",
+    "./middleware": "./src/middleware.ts"
   },
   "scripts": {
     "lint": "echo \"No lint configured yet\"",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.50.0"
+  },
   "devDependencies": {
+    "@account-books/config": "workspace:*",
     "typescript": "^5.8.3"
   }
 }

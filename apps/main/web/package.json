@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@account-books/supabase-client": "workspace:*",
+    "@account-books/types": "workspace:*",
+    "@account-books/utils": "workspace:*",
     "@base-ui/react": "^1.6.0",
     "@fontsource/pretendard": "^5.2.5",
     "@tailwindcss/postcss": "^4.3.1",
