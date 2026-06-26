@@ -1,0 +1,15 @@
+{
+  "name": "@account-books/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint.js",
+    "./prettier": "./prettier.js",
+    "./tsconfig": "./tsconfig.json",
+    "./tailwind": "./tailwind.js"
+  },
+  "scripts": {
+    "lint": "echo \"No lint configured yet\"",
+    "clean": "echo \"Nothing to clean\""
+  }
+}
