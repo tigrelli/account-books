@@ -9,7 +9,7 @@
     "./middleware": "./src/middleware.ts"
   },
   "scripts": {
-    "lint": "echo \"No lint configured yet\"",
+    "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -24,7 +24,9 @@
   "devDependencies": {
     "@account-books/config": "workspace:*",
     "@types/node": "^20",
+    "eslint": "^9.39.4",
     "next": "16.2.9",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.62.0"
   }
 }

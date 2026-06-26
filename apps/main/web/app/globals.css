@@ -40,9 +40,9 @@ a {
 }
 
 @theme inline {
-  --font-heading: 'Pretendard', 'Noto Sans KR', sans-serif;
-  --font-sans: 'Pretendard', 'Noto Sans KR', sans-serif;
-  --font-mono: var(--font-data), 'JetBrains Mono', monospace;
+  --font-heading: "Pretendard", "Noto Sans KR", sans-serif;
+  --font-sans: "Pretendard", "Noto Sans KR", sans-serif;
+  --font-mono: var(--font-data), "JetBrains Mono", monospace;
   --color-paylens-main: var(--paylens-main);
   --color-paylens-sub: var(--paylens-sub);
   --color-paylens-accent: var(--paylens-accent);

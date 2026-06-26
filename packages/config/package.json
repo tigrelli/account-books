@@ -2,13 +2,21 @@
   "name": "@account-books/config",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "exports": {
     "./tsconfig/base": "./tsconfig/base.json",
     "./tsconfig/nextjs": "./tsconfig/nextjs.json",
-    "./tsconfig/package": "./tsconfig/package.json"
+    "./tsconfig/package": "./tsconfig/package.json",
+    "./eslint/base": "./eslint/base.js",
+    "./prettier": "./prettier/index.js"
   },
   "scripts": {
-    "lint": "echo \"No lint configured yet\"",
+    "lint": "echo \"No lint for config package itself\"",
     "clean": "echo \"Nothing to clean\""
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "prettier": "^3",
+    "typescript-eslint": "^8"
   }
 }

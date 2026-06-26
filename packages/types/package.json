@@ -6,12 +6,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "echo \"No lint configured yet\"",
+    "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@account-books/config": "workspace:*",
-    "typescript": "^5.8.3"
+    "eslint": "^9.39.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.62.0"
   }
 }
