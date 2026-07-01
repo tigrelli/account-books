@@ -99,6 +99,18 @@ account-books/
 - 컴포넌트/파일명: React 컴포넌트는 `PascalCase.tsx`, 유틸/훅은 `camelCase.ts`.
 - 공통 타입/스키마는 새로 만들기 전에 `packages/types`, `packages/event-contracts`에 이미 있는지 먼저 확인.
 - 폼 검증: zod 사용. API 요청/응답도 zod로 파싱.
+- **`useActionState` 폼의 입력 필드 상태 관리**: React는 `<form action={함수}>` 제출 후 비제어(uncontrolled) 입력을 자동으로 리셋한다(네이티브 폼 제출과 동일 동작 모방). 검증 실패 시에도 사용자가 다시 입력할 필요 없이 값이 남아있어야 하는 필드(이름/이메일/텍스트 입력 등)는 `useState`로 제어 컴포넌트화해서 값을 보존할 것. 비밀번호류 민감 필드는 의도적으로 비제어 상태로 두어 제출마다 리셋되게 한다(보안/UX 관례). 새로 만드는 모든 입력 폼(지출 입력, 마스터 데이터 CRUD 등)에 이 패턴을 기본 적용할 것.
+  - 액션이 반환하는 성공 상태는 반드시 `{ status: "idle" }`이 아니라 `{ status: "success" }`(또는 그에 준하는 구분 가능한 값)로 리턴할 것 — "idle"을 그대로 재사용하면 초기 상태와 구분이 안 돼 "성공 시 폼 닫기/입력값 비우기" 로직이 동작하지 않는다.
+  - "제출 성공 시 편집모드 닫기/입력값 비우기" 처리는 `useEffect`로 하지 말고(캐스케이드 렌더링 경고 발생) 렌더 중 이전 값과 비교하는 React 공식 패턴을 쓸 것. 이때 비교 대상은 `state.status`가 아니라 **`state` 객체 참조 자체**여야 한다 — `status` 문자열만 비교하면 연속으로 같은 상태(예: 성공→성공)가 반환될 때 변화가 감지되지 않는다:
+    ```tsx
+    const [prevState, setPrevState] = useState(state);
+    if (state !== prevState) {
+      setPrevState(state);
+      if (state.status === "success") {
+        /* 편집모드 닫기 등 */
+      }
+    }
+    ```
 - 주석은 "왜"를 설명하는 경우에만 작성, 코드가 "무엇"을 하는지는 코드 자체로 읽히게 작성.
 - 커밋 메시지 형식: `[TASK-ID] 작업 내용` (예: `[F-1-5-4] 상세항목 추가 UI 동적 행 구현`) — WBS의 TASK ID를 그대로 사용해 추후 추적 가능하게 할 것.
 - **Lint/Format은 직접 설정을 건드리지 말고 기존 룰을 따른다.** 설정은 `packages/config`(ESLint/Prettier 공유 설정)에 정의되어 있고(S-0-14), 각 앱은 그걸 extends만 함. 코드 작성 후 `pnpm lint`, `pnpm format`으로 확인할 것 — 규칙을 바꿔야 할 이유가 있으면 먼저 PM에게 확인.

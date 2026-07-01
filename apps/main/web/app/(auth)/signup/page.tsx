@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUpAction, type SignUpState } from "./actions";
 
@@ -8,6 +8,11 @@ const initialState: SignUpState = { status: "idle" };
 
 export default function SignUpPage() {
   const [state, formAction, isPending] = useActionState(signUpAction, initialState);
+  // React는 form action 제출 후 비제어(uncontrolled) 입력을 자동으로 리셋한다.
+  // 이름/이메일은 검증 실패(예: 비밀번호 불일치) 시에도 값을 유지해야 하므로 제어 컴포넌트로 전환.
+  // 비밀번호 필드는 의도적으로 비제어 상태로 남겨 매 제출마다 리셋되게 한다.
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   if (state.status === "success") {
     return (
@@ -79,6 +84,8 @@ export default function SignUpPage() {
             type="text"
             autoComplete="name"
             placeholder="홍길동"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             className={`h-11 w-full rounded-lg border px-3.5 text-sm transition-colors outline-none placeholder:text-[var(--color-text-secondary)]/50 focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.name ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
           />
           {errors.name && (
@@ -100,6 +107,8 @@ export default function SignUpPage() {
             type="email"
             autoComplete="email"
             placeholder="example@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className={`h-11 w-full rounded-lg border px-3.5 text-sm transition-colors outline-none placeholder:text-[var(--color-text-secondary)]/50 focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.email ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
           />
           {errors.email && (
