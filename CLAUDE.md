@@ -119,6 +119,7 @@ account-books/
 - **테스트는 Vitest(단위) + Playwright(E2E)로 고정**(S-0-21) — `pnpm test`, `pnpm test:e2e`로 실행. WBS의 T-코드 TASK는 이 두 도구로 작성.
 - **환경변수**: `.env.example`에 키 목록만 정의하고 실제 값은 절대 커밋하지 않음. 로컬은 `.env.local`, CI/배포는 GitHub Secrets / 호스팅 플랫폼의 환경변수 설정 사용(S-0-16). `NEXT_PUBLIC_` 접두사가 붙은 변수만 브라우저에 노출되니, Service Role Key 등 민감한 키에는 절대 붙이지 말 것.
 - **`main` 브랜치는 직접 push 금지** — 브랜치 보호 규칙(S-0-23)으로 PR + CI 통과가 강제됨. 급한 수정이라도 `hotfix/*` 브랜치 + PR로 진행.
+- **`main` 머지 주기는 Phase 단위** (2026-07-01 PM 결정) — `deploy-migrations.yml`이 `main` push에만 반응해 클라우드 DB에 마이그레이션을 반영하므로, Phase 전체가 끝날 때까지 `main`을 안 건드리면 그 기간 내내 클라우드 DB/프로덕션 배포가 방치된다. 한 Phase(예: Phase 1)의 TASK가 전부 끝나면 `develop` → `main` 릴리즈 PR을 제안할 것 — PM이 먼저 언급하지 않아도 해당 Phase 마지막 TASK 완료 시점에 먼저 안내할 것.
 
 ## 작업 진행 방식 (PM 1인 + Claude Code)
 
