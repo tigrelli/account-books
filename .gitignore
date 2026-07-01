@@ -33,3 +33,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Google Sheets 서비스 계정 키 (절대 커밋 금지)
+scripts/.service-account.json
