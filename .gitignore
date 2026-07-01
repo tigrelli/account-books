@@ -19,6 +19,7 @@ build/
 
 # Supabase
 supabase/.temp/
+supabase/snippets/
 
 # Test outputs
 coverage/

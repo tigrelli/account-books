@@ -55,6 +55,8 @@ pnpm supabase start
 pnpm supabase db reset
 ```
 
+로컬 Docker Supabase로 개발/테스트하려면 `apps/main/web/.env.development.local` 파일에 `npx supabase status -o env`로 확인한 로컬 값(`API_URL`→`NEXT_PUBLIC_SUPABASE_URL`, `ANON_KEY`→`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SERVICE_ROLE_KEY`→`SUPABASE_SERVICE_ROLE_KEY`)을 넣어두면 된다. Next.js가 `next dev` 실행 시 이 파일을 `.env.local`보다 우선 적용하므로 별도 전환 작업 없이 항상 로컬 DB를 바라본다(클라우드로 테스트하려면 이 파일을 잠시 다른 이름으로 옮겨두면 `.env.local`의 클라우드 값이 적용됨). 이 파일은 `.env.*.local` 패턴으로 커밋에서 제외된다.
+
 ## 주요 스크립트
 
 ```bash
