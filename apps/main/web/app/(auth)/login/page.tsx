@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { loginAction, type LoginState } from "./actions";
 
@@ -8,6 +8,9 @@ const initialState: LoginState = { status: "idle" };
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
+  // 이메일은 검증/인증 실패 후에도 값을 유지해야 하므로 제어 컴포넌트로 전환.
+  // 비밀번호는 의도적으로 비제어 상태로 남겨 매 제출마다 리셋되게 한다.
+  const [email, setEmail] = useState("");
 
   const errors = state.status === "validation_error" ? state.errors : {};
 
@@ -39,6 +42,8 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             placeholder="example@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className={`h-11 w-full rounded-lg border px-3.5 text-sm transition-colors outline-none placeholder:text-[var(--color-text-secondary)]/50 focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.email ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
           />
           {errors.email && (
