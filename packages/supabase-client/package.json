@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@account-books/types": "workspace:*",
-    "@supabase/ssr": "^0.6.1",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.50.0"
   },
   "peerDependencies": {
