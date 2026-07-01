@@ -70,6 +70,7 @@ account-books/
 - 테이블/컬럼 명명: `snake_case`. 코드 단에서는 `supabase gen types typescript`로 생성된 타입을 그대로 사용(직접 타입을 손으로 다시 안 만듦).
 - 시드 데이터(시스템 기본 카테고리, 기본 단위, 현금 PAYMENT_METHOD 등)는 `supabase/seed.sql`에 작성.
 - 마이그레이션 작성 후에는 반드시 `supabase db reset` (로컬) 또는 `supabase db push --dry-run`으로 검증.
+- **새 테이블 생성 시 RLS 정책만으로는 부족 — `authenticated`(필요시 `anon`) 롤에 대한 명시적 `GRANT`(SELECT/INSERT/UPDATE/DELETE)를 반드시 함께 작성할 것.** `config.toml`의 `auto_expose_new_tables`가 기본 비활성화라 예전처럼 테이블 생성 시 자동으로 권한이 부여되지 않는다. PostgreSQL은 RLS보다 테이블 GRANT를 먼저 검사하므로, GRANT 누락 시 RLS 정책이 맞아도 `42501 permission denied`로 조용히 막힌다(S-1-1~S-1-8에서 실제로 발생 — `20260701100604_grant_authenticated_table_privileges.sql` 참고). RLS 정책과 정확히 같은 범위(테이블별 정책 있는 동작만)로 GRANT할 것 — 정책 없는 동작(예: DELETE 정책 미생성 테이블)에는 GRANT도 부여하지 않는다.
 - Service Role Key는 **서버/Edge Function에서만** 사용. 클라이언트(브라우저) 코드에 절대 노출 금지.
 
 ## 디자인 시스템 핵심 (UI 작업 시 참고)
