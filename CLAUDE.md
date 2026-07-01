@@ -132,6 +132,7 @@ account-books/
    3. PM에게 Google Sheets 동기화 스크립트 실행을 안내: `cd account-books/scripts && node sync-test-sheet.mjs`
    - 설정 방법: `docs/GOOGLE_SHEETS_SETUP.md` 참고. 스크립트가 "payLens 테스트 시나리오 마스터" 시트를 자동 생성/갱신함.
 6. 설계서(아키텍처/IA/WBS)와 실제 구현이 달라져야 할 필요가 생기면, 코드만 고치고 끝내지 말고 **어느 문서를 어떻게 고쳐야 하는지 같이 알려줄 것** (특히 ERD나 F-코드가 바뀌는 경우).
+7. **사이드바에 노출되는 새 화면(F-코드)을 완료할 때마다 `apps/main/web/app/(app)/nav-items.ts`와 `docs/기능명세서_IA.md` 1-1장 표를 함께 갱신할 것.** 아직 안 만든 화면 링크를 미리 넣어 죽은 링크를 만들지 않는다 — 화면이 실제로 완성된 시점에만 추가.
 
 ## 하지 말아야 할 것
 
