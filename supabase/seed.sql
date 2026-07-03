@@ -1,24 +1,8 @@
 -- 로컬 개발용 시드 데이터
 -- 각 S-1-x 마이그레이션 완료 후 docs/데이터정책_및_시드정의서.md 기준으로 추가됩니다.
 
--- [S-1-1] 시스템 기본 카테고리 (데이터정책_및_시드정의서 1-1)
--- is_system_default = true, user_id = null
--- 고정 UUID 사용 — 개발/운영 환경 간 참조 일관성 보장
-
-INSERT INTO public.category (id, user_id, parent_id, name, icon, is_system_default, is_active)
-VALUES
-    ('00000000-0000-0000-0001-000000000001', NULL, NULL, '식료품',    '🛒', true, true),
-    ('00000000-0000-0000-0001-000000000002', NULL, NULL, '의류',      '👕', true, true),
-    ('00000000-0000-0000-0001-000000000003', NULL, NULL, '주거',      '🏠', true, true),
-    ('00000000-0000-0000-0001-000000000004', NULL, NULL, '보험',      '🛡️', true, true),
-    ('00000000-0000-0000-0001-000000000005', NULL, NULL, '구독료',    '📱', true, true),
-    ('00000000-0000-0000-0001-000000000006', NULL, NULL, '관리비',    '🏢', true, true),
-    ('00000000-0000-0000-0001-000000000007', NULL, NULL, '회비',      '🤝', true, true),
-    ('00000000-0000-0000-0001-000000000008', NULL, NULL, '용돈',      '💸', true, true),
-    ('00000000-0000-0000-0001-000000000009', NULL, NULL, '교통',      '🚗', true, true),
-    ('00000000-0000-0000-0001-000000000010', NULL, NULL, '의료/건강', '🏥', true, true),
-    ('00000000-0000-0000-0001-000000000011', NULL, NULL, '기타',      '📦', true, true)
-ON CONFLICT (id) DO NOTHING;
+-- [S-1-1] 시스템 기본 지출항목(CATEGORY) 시드 없음 — payment_method와 동일하게
+-- 회원가입 트리거(create_default_categories, 20260702013201 마이그레이션)로 사용자별 생성
 
 -- [S-1-5] 시스템 기본 단위 시드 데이터 (데이터정책_및_시드정의서 1-3)
 -- is_system_default = true, user_id = null
