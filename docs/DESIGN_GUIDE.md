@@ -21,20 +21,25 @@
 
 ## 3. 컬러 시스템
 
-| 토큰명         | 변수명                   | HEX       | RGB         | 용도                                                              |
-| -------------- | ------------------------ | --------- | ----------- | ----------------------------------------------------------------- |
-| Deep Navy      | `--color-paylens-main`   | `#0B2545` | 11,37,69    | 메인 브랜드 컬러, 헤더, 주 타이포, 로고                           |
-| True Navy      | `--color-paylens-sub`    | `#134074` | 19,64,116   | 서브타이틀, 활성 메뉴탭, 컴포넌트 테두리                          |
-| Data Accent    | `--color-paylens-accent` | `#EE6C4D` | 238,108,77  | **데이터 강조**: 지출 경고, 트렌드 차트, 마이너스 금액, 예산 초과 |
-| Data Soft      | `--color-data-soft`      | `#EA580C` | 234,88,12   | **보조 데이터**: 중립 배지(▼), 잔여 예산 바, 현금/자동이체 태그   |
-| Action Teal    | `--color-action`         | `#0D9488` | 13,148,136  | **UI 액션**: CTA 버튼, 링크, 사이드바 활성 탭 인디케이터          |
-| Data Gray      | `--color-paylens-bg`     | `#F8FAFC` | 248,250,252 | 전체 배경, 카드 배경                                              |
-| Text Primary   | `--color-text-primary`   | `#0F172A` | —           | 본문 텍스트                                                       |
-| Text Secondary | `--color-text-secondary` | `#475569` | —           | 보조 설명 텍스트                                                  |
+| 토큰명         | 변수명                   | HEX       | RGB         | 용도                                                                            |
+| -------------- | ------------------------ | --------- | ----------- | ------------------------------------------------------------------------------- |
+| Deep Navy      | `--color-paylens-main`   | `#0B2545` | 11,37,69    | 메인 브랜드 컬러, 헤더, 주 타이포, 로고                                         |
+| True Navy      | `--color-paylens-sub`    | `#134074` | 19,64,116   | 서브타이틀, 활성 메뉴탭, 컴포넌트 테두리                                        |
+| Data Accent    | `--color-paylens-accent` | `#EE6C4D` | 238,108,77  | **데이터 강조**: 지출 경고, 트렌드 차트, 마이너스 금액, 예산 초과               |
+| Data Soft      | `--color-data-soft`      | `#EA580C` | 234,88,12   | **보조 데이터**: 중립 배지(▼), 잔여 예산 바                                     |
+| Action Teal    | `--color-action`         | `#0D9488` | 13,148,136  | **UI 액션**: CTA 버튼, 링크, 사이드바 활성 탭 인디케이터                        |
+| Cash Green     | `--color-paylens-cash`   | `#43A047` | 67,160,71   | **지출분류 태그 — 현금 전용**: 지갑/계좌 등 하위 유형과 무관하게 항상 동일 색상 |
+| Check Blue     | `--color-paylens-check`  | `#1E88E5` | 30,136,229  | **지출분류 태그 — 체크카드 전용**                                               |
+| Credit Orange  | `--color-paylens-credit` | `#FB8C00` | 251,140,0   | **지출분류 태그 — 신용카드 전용**                                               |
+| Data Gray      | `--color-paylens-bg`     | `#F8FAFC` | 248,250,252 | 전체 배경, 카드 배경                                                            |
+| Text Primary   | `--color-text-primary`   | `#0F172A` | —           | 본문 텍스트                                                                     |
+| Text Secondary | `--color-text-secondary` | `#475569` | —           | 보조 설명 텍스트                                                                |
 
 > **컬러 역할 원칙**: 오렌지 계열(`--color-paylens-accent`, `--color-data-soft`)은 데이터/수치 표시 전용. 틸(`--color-action`)은 클릭 가능한 인터랙션 전용. 두 역할을 혼용하지 않는다.
 >
 > ⚠️ `--color-paylens-accent`(`#EE6C4D`)는 원래 CTA 버튼 용도로 설계되었으나, 컬러 시스템 고도화로 **데이터 강조 전용**으로 역할이 변경됨. CTA 버튼은 반드시 `--color-action` 사용.
+>
+> **2026-07-03 결정**: 지출 내역 화면의 지출분류(현금/체크/신용) 아이콘 색상 구분용으로 `--color-paylens-cash`/`--color-paylens-check`/`--color-paylens-credit` 3개 전용 토큰 신설. 처음엔 체크=`--color-action`, 신용=`--color-data-soft`를 재사용했으나 현금과 색이 비슷해 구분이 어렵다는 피드백으로, 버튼/배지 등 다른 UI 요소와 값을 공유하지 않는 별도 토큰으로 분리(공용 토큰을 바꾸면 CTA 버튼 등 무관한 곳까지 색이 바뀌는 부작용 방지).
 
 ## 4. 타이포그래피
 
