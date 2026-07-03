@@ -51,6 +51,42 @@ export default async function SettingsPage() {
             </Link>
           </div>
         </section>
+
+        {/* 지출항목 관리 */}
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--color-text-primary)]">지출항목 관리</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                지출 항목을 등록하고 관리하세요
+              </p>
+            </div>
+            <Link
+              href="/settings/categories"
+              className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
+            >
+              관리하기 →
+            </Link>
+          </div>
+        </section>
+
+        {/* 지출처 관리 */}
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[var(--color-text-primary)]">지출처 관리</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                자주 쓰는 지출처를 등록하고 관리하세요
+              </p>
+            </div>
+            <Link
+              href="/settings/vendors"
+              className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
+            >
+              관리하기 →
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

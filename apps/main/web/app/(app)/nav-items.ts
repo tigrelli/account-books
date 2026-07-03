@@ -8,9 +8,15 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { label: "홈", href: "/" },
+  { label: "지출 입력", href: "/expenses/create" },
+  { label: "지출 내역", href: "/expenses" },
   {
     label: "설정",
     href: "/settings",
-    children: [{ label: "지출분류 관리", href: "/settings/payment-methods" }],
+    children: [
+      { label: "지출분류 관리", href: "/settings/payment-methods" },
+      { label: "지출항목 관리", href: "/settings/categories" },
+      { label: "지출처 관리", href: "/settings/vendors" },
+    ],
   },
 ];

@@ -15,6 +15,11 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        // Next.js가 global fetch를 패치해 GET 요청을 캐시할 수 있어, 다른 라우트에서의
+        // mutation 이후에도 이 값이 그대로 재사용되는 문제 방지(F-1-5-12 검증 중 발견).
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -31,7 +36,7 @@ export async function createSupabaseServerClient() {
           }
         },
       },
-    }
+    },
   );
 }
 
@@ -61,6 +66,6 @@ export async function createSupabaseAdminClient() {
           }
         },
       },
-    }
+    },
   );
 }
