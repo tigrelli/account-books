@@ -10,6 +10,7 @@ export const navItems: NavItem[] = [
   { label: "홈", href: "/" },
   { label: "지출 입력", href: "/expenses/create" },
   { label: "지출 내역", href: "/expenses" },
+  { label: "예산 관리", href: "/budgets" },
   {
     label: "설정",
     href: "/settings",
