@@ -70,14 +70,20 @@ test.describe("가입 → 로그인 → 로그아웃 전체 흐름", () => {
     await page.click('button[type="submit"]');
     await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
 
-    // 2. 로그인 (로컬 Supabase는 enable_confirmations = false)
-    await page.goto("/login");
+    // 2. 로그아웃 — 로컬 Supabase는 enable_confirmations = false라 signUp 시점에 이미 세션 쿠키가
+    // 발급되어 있다. "로그인" 단계를 실제로 거치려면 먼저 로그아웃해 비로그인 상태로 되돌려야 한다
+    // (로그인된 채로 /login에 가면 미들웨어가 즉시 "/"로 리다이렉트시켜 #email이 렌더링되지 않는다).
+    await page.goto("/settings");
+    await page.click('button:has-text("로그아웃")');
+    await expect(page).toHaveURL(/\/login/);
+
+    // 3. 로그인
     await page.fill("#email", email);
     await page.fill("#password", testPassword);
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL("/");
 
-    // 3. 로그아웃
+    // 4. 로그아웃
     await page.goto("/settings");
     await page.click('button:has-text("로그아웃")');
     await expect(page).toHaveURL(/\/login/);
