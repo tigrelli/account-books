@@ -18,6 +18,9 @@
 | T-1-5-1 | `__tests__/quantity-parse.test.ts`         | ✅ 8/8 통과   | 2026-07-03 10:02 (KST) |
 | T-1-5-1 | `__tests__/expense-calculations.test.ts`   | ✅ 4/4 통과   | 2026-07-03 10:02 (KST) |
 | T-1-5-2 | (E2E, 수동 검증 — 자동화 미작성, B-6)      | ✅ 수동 통과  | 2026-07-03 (KST)       |
+| -       | `__tests__/item-schemas.test.ts`           | ✅ 4/4 통과   | 2026-07-03 16:18 (KST) |
+| -       | `__tests__/item-aliases.test.ts`           | ✅ 6/6 통과   | 2026-07-03 16:23 (KST) |
+| T-1-6-1 | `__tests__/item-merge.test.ts`             | ✅ 9/9 통과   | 2026-07-03 16:26 (KST) |
 
 > E2E(`e2e/auth.spec.ts`, F-1-4-1~3 전체)는 이 샌드박스 환경에 헤드리스 브라우저 구동용 시스템 라이브러리가 없어 미작성 — 로컬/CI에서 별도 필요.
 
@@ -188,3 +191,27 @@
 | 5   | 지출 내역 필터(기간/지출분류/지출항목/지출처)        | `/expenses`           | 조건에 맞는 항목만 표시                     |
 
 > 정식 E2E는 로컬/CI 환경에서 별도로 작성 필요(B-6 참고).
+
+---
+
+## T-1-6-1 — 병합 로직 단위테스트 (merged_into_item_id 그룹화 검증)
+
+> 2026-07-03 PM 완료 확인. F-1-6-3의 `mergeItemAction`은 병합 시점에 `transaction_detail.item_id`를 즉시 재배정하지만, 멀티 스테이트먼트 트랜잭션 미지원으로 완벽한 원자성은 아니라는 알려진 한계가 있음 — `lib/item-merge.ts`에 병합 체인(다단계·순환 포함)을 따라 대표 품목을 찾는 `resolveCanonicalItemId`와, 상세항목을 대표 품목 기준으로 그룹화하는 `groupByCanonicalItem`을 추가해 향후 통계/Top10 집계(F-3-1-3 등)가 재배정 누락 데이터가 섞여도 정확히 묶이도록 방어.
+
+### 단위 테스트 (`__tests__/item-merge.test.ts`)
+
+| #   | 분류                   | 시나리오                | 기댓값                     |
+| --- | ---------------------- | ----------------------- | -------------------------- |
+| 1   | resolveCanonicalItemId | 병합된 적 없음          | 자기 자신 반환             |
+| 2   | resolveCanonicalItemId | 1단계 병합(A→B)         | B 반환                     |
+| 3   | resolveCanonicalItemId | 다단계 병합(A→B→C)      | 최종 대상 C 반환           |
+| 4   | resolveCanonicalItemId | 순환 참조(A→B→A)        | 무한루프 없이 종료         |
+| 5   | resolveCanonicalItemId | 목록에 없는 item_id     | 자기 자신 반환             |
+| 6   | groupByCanonicalItem   | 병합 없는 품목들        | 각자 그대로 합산           |
+| 7   | groupByCanonicalItem   | 병합된 품목(A→B)의 지출 | 대표 품목(B) 합계로 묶임   |
+| 8   | groupByCanonicalItem   | 다단계 병합(A→B→C)      | 최종 대표 품목(C)으로 묶임 |
+| 9   | groupByCanonicalItem   | 상세항목 없음           | 빈 맵 반환                 |
+
+### E2E 테스트
+
+> 별도 화면 없음(순수 로직 테스트) — 병합 UI 자체의 수동 검증은 F-1-6-3 완료 확인에 포함됨.
