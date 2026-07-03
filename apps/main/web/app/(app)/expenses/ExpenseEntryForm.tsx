@@ -71,8 +71,14 @@ function findSimilarItem(query: string, items: Item[]): Item | null {
   return best?.item ?? null;
 }
 
+// toISOString()은 UTC 기준으로 변환하므로 KST 자정~오전 9시 사이엔 하루 전 날짜가 나옴 —
+// 로컬 타임존 기준 연/월/일을 직접 조합해야 사용자가 보는 "오늘"과 일치한다.
 function todayDateInputValue(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const inputClassName =
