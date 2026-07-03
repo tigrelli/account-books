@@ -26,7 +26,7 @@ describe("displayNameSchema", () => {
 });
 
 describe("cardSchema", () => {
-  const valid = { displayName: "국민 체크카드", cardIssuer: "국민", cardKind: "CHECK" };
+  const valid = { displayName: "국민카드", cardKind: "CHECK" };
 
   it("유효한 입력은 통과한다", () => {
     expect(cardSchema.safeParse(valid).success).toBe(true);
@@ -36,30 +36,12 @@ describe("cardSchema", () => {
     expect(cardSchema.safeParse({ ...valid, cardKind: "CREDIT" }).success).toBe(true);
   });
 
-  it("카드 별칭이 비어있으면 실패한다", () => {
+  it("카드사명이 비어있으면 실패한다", () => {
     const result = cardSchema.safeParse({ ...valid, displayName: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
       const errors = result.error.flatten((i) => i.message).fieldErrors;
       expect(errors.displayName).toContain("이름을 입력해 주세요");
-    }
-  });
-
-  it("카드사가 비어있으면 실패한다", () => {
-    const result = cardSchema.safeParse({ ...valid, cardIssuer: "" });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const errors = result.error.flatten((i) => i.message).fieldErrors;
-      expect(errors.cardIssuer).toContain("카드사를 입력해 주세요");
-    }
-  });
-
-  it("카드사가 30자를 초과하면 실패한다", () => {
-    const result = cardSchema.safeParse({ ...valid, cardIssuer: "a".repeat(31) });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const errors = result.error.flatten((i) => i.message).fieldErrors;
-      expect(errors.cardIssuer).toContain("카드사명이 너무 깁니다");
     }
   });
 
