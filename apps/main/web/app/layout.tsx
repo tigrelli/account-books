@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import "@fontsource/pretendard/400.css";
 import "@fontsource/pretendard/500.css";
@@ -11,9 +11,18 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// manifest 링크는 app/manifest.ts 파일 컨벤션으로 Next.js가 자동 주입 — 여기서 중복 지정하지 않음.
 export const metadata: Metadata = {
   title: "payLens",
   description: "Trusted Expense Analysis",
+  appleWebApp: {
+    title: "payLens",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B2545",
 };
 
 export default function RootLayout({

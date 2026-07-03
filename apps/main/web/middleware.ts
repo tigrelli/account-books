@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // _next 내부 경로, 정적 파일, favicon 제외
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // _next 내부 경로, 정적 파일, favicon, PWA 매니페스트(F-1-9-2, 인증 없이도 접근 가능해야 함) 제외
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
