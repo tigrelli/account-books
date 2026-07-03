@@ -41,7 +41,7 @@ function AccountRow({ account }: { account: PaymentMethod }) {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             autoFocus
-            className={`h-9 flex-1 rounded-lg border px-3 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
+            className={`h-9 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
           />
           <button
             type="submit"
@@ -116,7 +116,7 @@ function AddAccountForm() {
           placeholder="예: 신한은행 통장"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className={`h-10 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
+          className={`h-10 min-w-0 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
         />
         <button
           type="submit"

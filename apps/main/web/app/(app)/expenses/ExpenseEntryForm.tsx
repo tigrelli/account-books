@@ -486,7 +486,7 @@ function DetailItemRows({
                   value={row.amount}
                   onChange={(v) => updateRow(row.id, { amount: v })}
                   placeholder="금액"
-                  className={`${inputClassName} flex-1 font-mono`}
+                  className={`${inputClassName} min-w-0 flex-1 font-mono`}
                 />
               </div>
               {parsedQuantity && (

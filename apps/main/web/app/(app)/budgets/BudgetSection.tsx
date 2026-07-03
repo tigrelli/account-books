@@ -33,7 +33,7 @@ function AmountField({
         placeholder="0"
         value={displayValue}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
-        className="h-10 flex-1 rounded-lg border border-[#e2e8f0] px-3.5 text-right font-mono text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15"
+        className="h-10 min-w-0 flex-1 rounded-lg border border-[#e2e8f0] px-3.5 text-right font-mono text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15"
       />
       <input type="hidden" name={name} value={value} />
     </>

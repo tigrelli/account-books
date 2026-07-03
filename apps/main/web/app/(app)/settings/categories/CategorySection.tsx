@@ -82,7 +82,7 @@ function CategoryFields({
           placeholder="이름 (예: 외식)"
           value={values.name}
           onChange={(e) => onChange({ ...values, name: e.target.value })}
-          className={`h-10 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.name ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
+          className={`h-10 min-w-0 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.name ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
         />
       </div>
       {(errors.name || errors.icon) && (
