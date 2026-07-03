@@ -17,6 +17,7 @@ export const navItems: NavItem[] = [
       { label: "지출분류 관리", href: "/settings/payment-methods" },
       { label: "지출항목 관리", href: "/settings/categories" },
       { label: "지출처 관리", href: "/settings/vendors" },
+      { label: "품목 관리", href: "/settings/items" },
     ],
   },
 ];

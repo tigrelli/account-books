@@ -1,22 +1,18 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import type { Database, Json } from "@account-books/types";
+import type { Database } from "@account-books/types";
 import { addExpenseAction, updateExpenseAction, type ExpenseActionState } from "./actions";
 import { parseQuantityText } from "@/lib/quantity-parse";
 import { sumDetailAmounts } from "@/lib/expense-calculations";
 import { formatPaymentMethodLabel } from "@/lib/payment-method-format";
+import { itemAliasesToArray } from "@/lib/item-aliases";
 
 type PaymentMethod = Database["public"]["Tables"]["payment_method"]["Row"];
 type Category = Database["public"]["Tables"]["category"]["Row"];
 type Vendor = Database["public"]["Tables"]["vendor"]["Row"];
 type Item = Database["public"]["Tables"]["item"]["Row"];
 type Unit = Database["public"]["Tables"]["unit"]["Row"];
-
-// aliases는 jsonb라 타입상 Json — 자동완성 매칭 전 문자열 배열로만 좁혀 사용.
-function itemAliasesToArray(aliases: Json): string[] {
-  return Array.isArray(aliases) ? aliases.filter((a): a is string => typeof a === "string") : [];
-}
 
 // 마지막 글자의 받침 유무 판별 (유니코드 완성형 한글 음절 기준). 한글이 아니면 받침 없음으로 취급.
 function hasBatchim(word: string): boolean {
@@ -28,10 +24,6 @@ function hasBatchim(word: string): boolean {
 
 function waOrGwa(word: string): "와" | "과" {
   return hasBatchim(word) ? "과" : "와";
-}
-
-function eunOrNeun(word: string): "은" | "는" {
-  return hasBatchim(word) ? "은" : "는";
 }
 
 function itemSearchTerms(item: Item): string[] {
@@ -354,8 +346,69 @@ function ItemCombobox({
   );
 }
 
+// 수량/단위 자동완성(F-1-5-9) — 입력한 단위 텍스트와 일치하는 기존 UNIT을 보여주고 선택하게만 함.
+// 목록에 없는 단위는 안내 문구 없이 저장 시 자동 등록(서버 액션의 resolveUnitId가 이미 find-or-create로
+// 처리 — "신규 단위로 등록됩니다" 같은 안내는 불필요한 알림이라 제거, 2026-07-03 PM 결정).
+function QuantityUnitInput({
+  units,
+  value,
+  onChange,
+}: {
+  units: Unit[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const parsedQuantity = parseQuantityText(value);
+  const unitQuery = parsedQuantity?.unitText.trim().toLowerCase() ?? "";
+  const matches =
+    unitQuery.length === 0
+      ? []
+      : units.filter((u) => u.name.toLowerCase().includes(unitQuery)).slice(0, 6);
+
+  return (
+    <div className="relative w-24 shrink-0">
+      <input
+        name="detailQuantityText"
+        type="text"
+        autoComplete="off"
+        placeholder="수량/단위"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        className={inputClassName}
+      />
+      {isOpen && matches.length > 0 && parsedQuantity && (
+        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
+          {matches.map((u) => (
+            <li key={u.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(`${parsedQuantity.value}${u.name}`);
+                  setIsOpen(false);
+                }}
+                className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
+              >
+                {parsedQuantity.value}
+                {u.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // 동적 행 추가/삭제(F-1-5-4) + 품목 자동완성(F-1-5-5) + 신규 Item 안내(F-1-5-6) + 유사항목 제안(F-1-5-7)
-// + 수량/단위 파싱 미리보기(F-1-5-8) + 단위 마스터 매칭/신규 단위 안내(F-1-5-9). 실제 저장은 actions.ts(F-1-5-11).
+// + 수량/단위 파싱 미리보기(F-1-5-8) + 단위 자동완성(F-1-5-9). 실제 저장은 actions.ts(F-1-5-11).
 function DetailItemRows({
   rows,
   items,
@@ -384,12 +437,6 @@ function DetailItemRows({
         const similarItem =
           !row.itemId && query.length > 0 && !hasMatch ? findSimilarItem(query, items) : null;
         const parsedQuantity = parseQuantityText(row.quantityText);
-        // 구조화에 성공하고 단위 텍스트가 있는데 UNIT 마스터(시스템 기본+내 커스텀)에 없으면 신규 단위 후보로 안내.
-        const newUnitText =
-          parsedQuantity?.unitText &&
-          !units.some((u) => u.name.toLowerCase() === parsedQuantity.unitText.toLowerCase())
-            ? parsedQuantity.unitText
-            : null;
 
         return (
           <div
@@ -423,34 +470,24 @@ function DetailItemRows({
                 </p>
               )}
               <div className="flex gap-1.5">
-                <input
-                  name="detailQuantityText"
-                  type="text"
-                  placeholder="수량/단위 (선택, 예: 1개)"
+                <QuantityUnitInput
+                  units={units}
                   value={row.quantityText}
-                  onChange={(e) => updateRow(row.id, { quantityText: e.target.value })}
-                  className={inputClassName}
+                  onChange={(v) => updateRow(row.id, { quantityText: v })}
                 />
                 <AmountInput
                   name="detailAmount"
                   value={row.amount}
                   onChange={(v) => updateRow(row.id, { amount: v })}
                   placeholder="금액"
-                  className={`${inputClassName} font-mono`}
+                  className={`${inputClassName} flex-1 font-mono`}
                 />
               </div>
-              {row.quantityText.trim().length > 0 && (
+              {parsedQuantity && (
                 <p className="text-xs text-[var(--color-text-secondary)]">
-                  {parsedQuantity
-                    ? parsedQuantity.unitText
-                      ? `→ 수량 ${parsedQuantity.value}, 단위 '${parsedQuantity.unitText}'`
-                      : `→ 수량 ${parsedQuantity.value}`
-                    : "→ 구조화 실패 — 입력한 원본 텍스트로 저장됩니다"}
-                </p>
-              )}
-              {newUnitText && (
-                <p className="text-xs text-[var(--color-text-secondary)]">
-                  &apos;{newUnitText}&apos;{eunOrNeun(newUnitText)} 새 단위로 등록됩니다
+                  {parsedQuantity.unitText
+                    ? `→ 수량 ${parsedQuantity.value}, 단위 '${parsedQuantity.unitText}'`
+                    : `→ 수량 ${parsedQuantity.value}`}
                 </p>
               )}
             </div>
