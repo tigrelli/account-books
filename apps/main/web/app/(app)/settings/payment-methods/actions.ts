@@ -18,7 +18,6 @@ export async function addCardAction(
 ): Promise<PaymentMethodActionState> {
   const parsed = cardSchema.safeParse({
     displayName: formData.get("displayName"),
-    cardIssuer: formData.get("cardIssuer"),
     cardKind: formData.get("cardKind"),
   });
 
@@ -39,7 +38,7 @@ export async function addCardAction(
     user_id: user.id,
     type: "CARD",
     display_name: parsed.data.displayName,
-    card_issuer: parsed.data.cardIssuer,
+    card_issuer: null,
     card_kind: parsed.data.cardKind,
   });
 
@@ -58,7 +57,6 @@ export async function updateCardAction(
 
   const parsed = cardSchema.safeParse({
     displayName: formData.get("displayName"),
-    cardIssuer: formData.get("cardIssuer"),
     cardKind: formData.get("cardKind"),
   });
 
@@ -74,7 +72,7 @@ export async function updateCardAction(
     .from("payment_method")
     .update({
       display_name: parsed.data.displayName,
-      card_issuer: parsed.data.cardIssuer,
+      card_issuer: null,
       card_kind: parsed.data.cardKind,
     })
     .eq("id", id);

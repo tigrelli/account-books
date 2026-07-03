@@ -19,6 +19,9 @@
   --color-paylens-accent: var(--paylens-accent);
   --color-paylens-data-soft: var(--paylens-data-soft);
   --color-paylens-action: var(--paylens-action);
+  --color-paylens-cash: var(--paylens-cash);
+  --color-paylens-check: var(--paylens-check);
+  --color-paylens-credit: var(--paylens-credit);
   --color-paylens-bg: var(--paylens-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -98,8 +101,13 @@
   --paylens-main: #0b2545;
   --paylens-sub: #134074;
   --paylens-accent: #ee6c4d; /* 데이터 강조 전용: 지출 경고, 트렌드 차트, 마이너스 금액 */
-  --paylens-data-soft: #ea580c; /* 보조 데이터: 중립 배지, 잔여 예산 바, 결제수단 태그 */
+  --paylens-data-soft: #ea580c; /* 보조 데이터: 중립 배지, 잔여 예산 바 */
   --paylens-action: #0d9488; /* UI 액션 전용: CTA 버튼, 링크, 활성 탭 */
+  /* 지출분류 태그 전용 색상(2026-07-03 PM 지정) — 체크/현금이 기존 --paylens-action과 비슷해 구분이 어렵다는
+     피드백으로, 다른 UI 요소와 공유하지 않는 3개 색을 별도로 둠(버튼/배지 등 색이 여기 변경에 영향받지 않도록). */
+  --paylens-cash: #43a047;
+  --paylens-check: #1e88e5;
+  --paylens-credit: #fb8c00;
   --paylens-bg: #f8fafc;
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
@@ -167,5 +175,10 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+  button:not(:disabled),
+  a[href],
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
   }
 }

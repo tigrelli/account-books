@@ -18,16 +18,22 @@ const cardKindLabel: Record<string, string> = {
   CREDIT: "신용카드",
 };
 
-type CardFieldValues = { displayName: string; cardIssuer: string; cardKind: string };
+// 2026-07-03 PM 결정: "카드 별칭"과 "카드사"를 별도로 입력받던 것을 하나로 합침 — 이제 "카드사명"
+// 한 칸만 입력받아 그대로 displayName(표시명)으로 저장. card_issuer 컬럼은 삭제하지 않고 항상 null로 유지.
+type CardFieldValues = { displayName: string; cardKind: string };
 
 function CardFields({
   errors,
   values,
   onChange,
+  trailingButton,
 }: {
   errors: Partial<Record<string, string[]>>;
   values: CardFieldValues;
   onChange: (values: CardFieldValues) => void;
+  // 등록 폼에서만 카드사명/종류와 같은 줄에 "등록" 버튼을 넣기 위한 슬롯 — 수정 폼(CardRow)은 아래에
+  // "취소"/"저장" 버튼을 별도 줄로 두는 기존 레이아웃을 유지하므로 비워둠.
+  trailingButton?: React.ReactNode;
 }) {
   return (
     <>
@@ -35,35 +41,25 @@ function CardFields({
         <input
           name="displayName"
           type="text"
-          placeholder="카드 별칭 (예: 국민 체크카드)"
+          placeholder="카드사명 (예: 국민카드)"
           value={values.displayName}
           onChange={(e) => onChange({ ...values, displayName: e.target.value })}
-          className={`h-10 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
-        />
-        <input
-          name="cardIssuer"
-          type="text"
-          placeholder="카드사 (예: 국민)"
-          value={values.cardIssuer}
-          onChange={(e) => onChange({ ...values, cardIssuer: e.target.value })}
-          className={`h-10 w-32 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.cardIssuer ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
+          className={`h-10 min-w-0 flex-1 rounded-lg border px-3.5 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.displayName ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
         />
         <select
           name="cardKind"
           value={values.cardKind}
           onChange={(e) => onChange({ ...values, cardKind: e.target.value })}
-          className={`h-10 rounded-lg border bg-white px-2 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.cardKind ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
+          className={`h-10 shrink-0 rounded-lg border bg-white px-2 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 ${errors.cardKind ? "border-[var(--paylens-accent)]" : "border-[#e2e8f0]"}`}
         >
-          <option value="" disabled>
-            종류
-          </option>
           <option value="CHECK">체크</option>
           <option value="CREDIT">신용</option>
         </select>
+        {trailingButton}
       </div>
-      {(errors.displayName || errors.cardIssuer || errors.cardKind) && (
+      {(errors.displayName || errors.cardKind) && (
         <p className="text-xs text-[var(--paylens-accent)]">
-          {errors.displayName?.[0] ?? errors.cardIssuer?.[0] ?? errors.cardKind?.[0]}
+          {errors.displayName?.[0] ?? errors.cardKind?.[0]}
         </p>
       )}
     </>
@@ -77,7 +73,6 @@ function CardRow({ card }: { card: PaymentMethod }) {
   // 검증 실패 시에도 입력값이 원래대로 리셋되지 않도록 제어 컴포넌트로 유지
   const [values, setValues] = useState<CardFieldValues>({
     displayName: card.display_name,
-    cardIssuer: card.card_issuer ?? "",
     cardKind: card.card_kind ?? "",
   });
 
@@ -123,7 +118,8 @@ function CardRow({ card }: { card: PaymentMethod }) {
       <div>
         <p className="text-sm text-[var(--color-text-primary)]">{card.display_name}</p>
         <p className="text-xs text-[var(--color-text-secondary)]">
-          {card.card_issuer} · {cardKindLabel[card.card_kind ?? ""] ?? card.card_kind}
+          {card.card_issuer ? `${card.card_issuer} · ` : ""}
+          {cardKindLabel[card.card_kind ?? ""] ?? card.card_kind}
         </p>
       </div>
       <div className="flex items-center gap-3">
@@ -140,14 +136,15 @@ function CardRow({ card }: { card: PaymentMethod }) {
           onClick={() => startToggle(() => setActiveAction(card.id, !card.is_active))}
           className="text-xs font-medium text-[var(--color-text-secondary)] hover:underline"
         >
-          {card.is_active ? "비활성화" : "다시 활성화"}
+          {card.is_active ? "비활성화" : "활성화"}
         </button>
       </div>
     </div>
   );
 }
 
-const emptyCardValues: CardFieldValues = { displayName: "", cardIssuer: "", cardKind: "" };
+// 카드 등록 시 "종류" 미선택 placeholder를 없애는 대신 신용을 기본값으로 선택해 둠(PM 결정).
+const emptyCardValues: CardFieldValues = { displayName: "", cardKind: "CREDIT" };
 
 function AddCardForm() {
   const [state, formAction, isPending] = useActionState(addCardAction, initialState);
@@ -167,16 +164,20 @@ function AddCardForm() {
       {state.status === "error" && (
         <p className="text-sm font-medium text-[var(--paylens-accent)]">{state.message}</p>
       )}
-      <CardFields errors={errors} values={values} onChange={setValues} />
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-10 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending ? "추가 중…" : "카드 추가"}
-        </button>
-      </div>
+      <CardFields
+        errors={errors}
+        values={values}
+        onChange={setValues}
+        trailingButton={
+          <button
+            type="submit"
+            disabled={isPending}
+            className="h-10 shrink-0 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? "등록 중…" : "등록"}
+          </button>
+        }
+      />
     </form>
   );
 }

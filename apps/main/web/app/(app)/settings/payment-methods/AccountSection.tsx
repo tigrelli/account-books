@@ -84,7 +84,7 @@ function AccountRow({ account }: { account: PaymentMethod }) {
           onClick={() => startToggle(() => setActiveAction(account.id, !account.is_active))}
           className="text-xs font-medium text-[var(--color-text-secondary)] hover:underline"
         >
-          {account.is_active ? "비활성화" : "다시 활성화"}
+          {account.is_active ? "비활성화" : "활성화"}
         </button>
       </div>
     </div>
@@ -123,7 +123,7 @@ function AddAccountForm() {
           disabled={isPending}
           className="h-10 shrink-0 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "추가 중…" : "계좌 추가"}
+          {isPending ? "등록 중…" : "등록"}
         </button>
       </div>
       {errors.displayName && (
