@@ -98,7 +98,13 @@ function AddAliasForm({ itemId }: { itemId: string }) {
 }
 
 // 대상 품목이 없으면(등록된 품목이 1개뿐) 병합 자체가 불가능해 컨트롤을 아예 숨김.
-function MergeControl({ item, otherItems }: { item: Item; otherItems: Item[] }) {
+function MergeControl({
+  item,
+  otherItems,
+}: {
+  item: Item;
+  otherItems: Pick<Item, "id" | "name">[];
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [targetId, setTargetId] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -172,7 +178,7 @@ function ItemRow({
 }: {
   item: Item;
   categoryById: Map<string, Category>;
-  otherItems: Item[];
+  otherItems: Pick<Item, "id" | "name">[];
 }) {
   const aliases = itemAliasesToArray(item.aliases);
   const defaultCategory = item.default_category_id
@@ -203,7 +209,16 @@ function ItemRow({
   );
 }
 
-export function ItemSection({ items, categories }: { items: Item[]; categories: Category[] }) {
+export function ItemSection({
+  items,
+  allItems,
+  categories,
+}: {
+  items: Item[];
+  // 병합 대상 드롭다운용 전체 품목 목록 — 현재 페이지(items)에 없는 품목도 합칠 수 있어야 하므로 별도로 받음.
+  allItems: Pick<Item, "id" | "name">[];
+  categories: Category[];
+}) {
   const categoryById = new Map(categories.map((c) => [c.id, c]));
 
   if (items.length === 0) {
@@ -221,7 +236,7 @@ export function ItemSection({ items, categories }: { items: Item[]; categories: 
           key={item.id}
           item={item}
           categoryById={categoryById}
-          otherItems={items.filter((other) => other.id !== item.id)}
+          otherItems={allItems.filter((other) => other.id !== item.id)}
         />
       ))}
     </div>

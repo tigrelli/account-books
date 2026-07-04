@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { CashSection } from "./CashSection";
 import { AccountSection } from "./AccountSection";
@@ -27,10 +26,7 @@ export default async function PaymentMethodsPage() {
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
       <div className="mx-auto max-w-xl space-y-6">
         <div>
-          <Link href="/settings" className="text-sm text-[var(--paylens-action)] hover:underline">
-            ← 계정 설정으로
-          </Link>
-          <h1 className="mt-2 text-xl font-bold text-[var(--color-text-primary)]">지출분류 관리</h1>
+          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">지출분류 관리</h1>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
             현금, 계좌, 카드를 등록하고 관리하세요
           </p>

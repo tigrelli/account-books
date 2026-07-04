@@ -157,6 +157,7 @@ function AddVendorForm() {
 export function VendorSection({ vendors }: { vendors: Vendor[] }) {
   return (
     <div className="space-y-3">
+      <AddVendorForm />
       {vendors.length === 0 ? (
         <p className="text-sm text-[var(--color-text-secondary)]">등록된 지출처가 없습니다</p>
       ) : (
@@ -166,7 +167,6 @@ export function VendorSection({ vendors }: { vendors: Vendor[] }) {
           ))}
         </div>
       )}
-      <AddVendorForm />
     </div>
   );
 }

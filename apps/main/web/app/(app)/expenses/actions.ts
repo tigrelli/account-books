@@ -34,12 +34,18 @@ async function resolveVendorId(
 ): Promise<string | null> {
   const { data: existing } = await supabase
     .from("vendor")
-    .select("id")
+    .select("id, is_active")
     .eq("user_id", userId)
     .eq("name", vendorName)
     .maybeSingle();
 
-  if (existing) return existing.id;
+  if (existing) {
+    // 비활성화했던 지출처를 다시 지출 입력에 쓰면 자동완성 목록에도 다시 노출되도록 재활성화.
+    if (!existing.is_active) {
+      await supabase.from("vendor").update({ is_active: true }).eq("id", existing.id);
+    }
+    return existing.id;
+  }
 
   const { data: created } = await supabase
     .from("vendor")

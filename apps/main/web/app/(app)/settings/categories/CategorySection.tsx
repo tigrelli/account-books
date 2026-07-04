@@ -203,6 +203,7 @@ function AddCategoryForm() {
 export function CategorySection({ categories }: { categories: Category[] }) {
   return (
     <div className="space-y-3">
+      <AddCategoryForm />
       {categories.length === 0 ? (
         <p className="text-sm text-[var(--color-text-secondary)]">등록된 지출항목이 없습니다</p>
       ) : (
@@ -212,7 +213,6 @@ export function CategorySection({ categories }: { categories: Category[] }) {
           ))}
         </div>
       )}
-      <AddCategoryForm />
     </div>
   );
 }

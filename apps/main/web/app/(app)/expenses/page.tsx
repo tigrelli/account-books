@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { ExpenseFilters, type ExpenseFilterValues } from "./ExpenseFilters";
 import { PaymentMethodTag } from "./PaymentMethodTag";
+import { PaginationNav } from "../_components/PaginationNav";
 
 // 매번 최신 지출 내역을 보여줘야 하므로 캐시하지 않음 — supabase-js의 fetch 호출이
 // Next.js Data Cache에 걸려 방금 저장한 항목이 누락되는 문제 방지.
@@ -191,31 +192,7 @@ export default async function ExpensesListPage({
           )}
 
           {rows.length > 0 && (
-            <div className="mt-4 flex items-center justify-between border-t border-[#e2e8f0] pt-4">
-              {page > 1 ? (
-                <Link
-                  href={pageHref(page - 1)}
-                  className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
-                >
-                  ← 이전
-                </Link>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-[var(--color-text-secondary)]">
-                {page} / {totalPages}
-              </span>
-              {page < totalPages ? (
-                <Link
-                  href={pageHref(page + 1)}
-                  className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
-                >
-                  다음 →
-                </Link>
-              ) : (
-                <span />
-              )}
-            </div>
+            <PaginationNav page={page} totalPages={totalPages} buildHref={pageHref} />
           )}
         </section>
       </div>
