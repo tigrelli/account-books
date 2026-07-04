@@ -39,11 +39,36 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">홈</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{period} 지출 요약</p>
-        </div>
+      {/* 캘린더(F-1-10-1)와 동일한 근거로 확장 — 월별추이/지출분류별 차트는 내부가 w-full이라
+          넓을수록 유리. 1920px(FHD)까지는 100%로 차오르고 QHD/4K에서만 상한 역할(태블릿/모바일은
+          영향 없음). 카테고리별 도넛은 원 자체가 sm:w-56 고정폭이라 이 변경으로 커지지 않음 — 옆
+          범례 목록만 여유가 생김. */}
+      <div className="mx-auto max-w-[1920px] space-y-6">
+        {/* "홈" 타이틀(사이드바에 이미 강조 표시되어 중복)은 제거하고, 유일한 "몇 월 데이터를 보고
+            있는지" 표시였던 기간 텍스트는 카드로 승격 + 자주 쓰는 바로가기 2개(캘린더/지출 입력)를
+            같은 카드 안에 나란히 배치 — 버튼이 텍스트 없이 혼자 떠 있지 않도록 균형을 맞춤. */}
+        <section className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm sm:flex-row sm:items-center">
+          <div>
+            <p className="text-sm text-[var(--color-text-secondary)]">이번달 지출 요약</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
+              {period}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/expenses/calendar"
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0f766e] active:bg-[#0d6b63]"
+            >
+              📅 캘린더 바로가기
+            </Link>
+            <Link
+              href="/expenses/create"
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[var(--paylens-action)] px-4 text-sm font-semibold text-[var(--paylens-action)] transition-colors hover:bg-[var(--paylens-action)]/5"
+            >
+              + 지출 입력
+            </Link>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <section className="rounded-2xl bg-white p-6 shadow-sm">
