@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
+import type { Json } from "@account-books/types";
 import { expenseSchema, expenseDetailSchema } from "@/lib/expense-schemas";
 import { parseQuantityText } from "@/lib/quantity-parse";
+import { itemAliasesToArray } from "@/lib/item-aliases";
+import { resolveCanonicalItemId } from "@/lib/item-merge";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -12,6 +14,9 @@ const PATH = "/expenses/create";
 // 목록 화면(F-1-5-12)도 함께 무효화 — 사이드바의 <Link href="/expenses">가 자동 프리페치해두는
 // Router Cache가 저장 후에도 남아있어 방금 저장한 지출이 목록에 안 보이는 문제 방지.
 const LIST_PATH = "/expenses";
+// 캘린더 화면(F-1-10-1)도 force-dynamic이지만, 빠른 입력 팝업(F-1-10-2)은 페이지 이동 없이
+// 같은 라우트에 머무르므로 Router Cache 무효화를 위해 명시적으로 함께 재검증.
+const CALENDAR_PATH = "/expenses/calendar";
 
 export type ExpenseActionState =
   | { status: "idle" }
@@ -45,32 +50,45 @@ async function resolveVendorId(
   return created?.id ?? null;
 }
 
-// 이름 완전일치로 기존 Item 재사용, 없으면 생성. 같은 제출 안에서 같은 신규 이름이 여러 행에 나오면
-// (예: "양파" 두 줄) 중복 생성되지 않도록 요청 스코프 캐시(cache)를 먼저 확인.
+type ResolvableItem = {
+  id: string;
+  name: string;
+  aliases: Json;
+  merged_into_item_id: string | null;
+};
+
+// 이름/별칭 일치(대소문자 무시)로 기존 Item 재사용 — 자동완성에서 제안을 직접 클릭하지 않고
+// 그냥 타이핑만 해도, 이미 병합된 품목(예: "깐 양파"→"양파")은 항상 최종 대표 품목으로 귀결되어야
+// 통계가 갈라지지 않는다(2026-07-04 PM 확인 — 병합 의도 자체가 "앞으로도 하나로 보고 싶다"임).
+// ① itemId가 이미 주어졌어도(자동완성에서 선택) 혹시 그 품목이 그 사이 다른 곳으로 병합됐을 가능성을
+//    대비해 항상 resolveCanonicalItemId로 한 번 더 체인을 확인 ② 이름/별칭으로 새로 찾은 경우도 동일하게
+//    체인 끝까지 resolve ③ 아무것도 못 찾으면 새 품목 생성. 같은 제출 안에서 같은 신규 이름이 여러 행에
+//    나오면(예: "양파" 두 줄) 중복 생성되지 않도록 요청 스코프 캐시(cache)를 먼저 확인.
 async function resolveItemId(
   supabase: SupabaseServerClient,
   userId: string,
   itemText: string,
   itemId: string | undefined,
   categoryId: string,
-  cache: Map<string, string>
+  cache: Map<string, string>,
+  userItems: ResolvableItem[]
 ): Promise<string | null> {
-  if (itemId) return itemId;
+  if (itemId) return resolveCanonicalItemId(itemId, userItems);
 
   const cacheKey = itemText.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const { data: existing } = await supabase
-    .from("item")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("name", itemText)
-    .maybeSingle();
+  const matched = userItems.find(
+    (item) =>
+      item.name.toLowerCase() === cacheKey ||
+      itemAliasesToArray(item.aliases).some((alias) => alias.toLowerCase() === cacheKey)
+  );
 
-  if (existing) {
-    cache.set(cacheKey, existing.id);
-    return existing.id;
+  if (matched) {
+    const canonicalId = resolveCanonicalItemId(matched.id, userItems);
+    cache.set(cacheKey, canonicalId);
+    return canonicalId;
   }
 
   const { data: created } = await supabase
@@ -170,6 +188,10 @@ export async function addExpenseAction(
 
     const itemCache = new Map<string, string>();
     const unitCache = new Map<string, string>();
+    const { data: userItems } = await supabase
+      .from("item")
+      .select("id, name, aliases, merged_into_item_id")
+      .eq("user_id", user.id);
 
     const detailRows: {
       transaction_id: string;
@@ -190,7 +212,8 @@ export async function addExpenseAction(
         detail.itemText,
         detail.itemId,
         categoryId,
-        itemCache
+        itemCache,
+        userItems ?? []
       );
       if (!itemId) return { status: "error", message: "상세항목(품목) 등록에 실패했습니다" };
 
@@ -244,6 +267,7 @@ export async function addExpenseAction(
 
     revalidatePath(PATH);
     revalidatePath(LIST_PATH);
+    revalidatePath(CALENDAR_PATH);
     return { status: "success" };
   }
 
@@ -281,6 +305,7 @@ export async function addExpenseAction(
 
   revalidatePath(PATH);
   revalidatePath(LIST_PATH);
+  revalidatePath(CALENDAR_PATH);
   return { status: "success" };
 }
 
@@ -349,6 +374,10 @@ export async function updateExpenseAction(
 
     const itemCache = new Map<string, string>();
     const unitCache = new Map<string, string>();
+    const { data: userItems } = await supabase
+      .from("item")
+      .select("id, name, aliases, merged_into_item_id")
+      .eq("user_id", user.id);
 
     const detailRows: {
       transaction_id: string;
@@ -367,7 +396,8 @@ export async function updateExpenseAction(
         detail.itemText,
         detail.itemId,
         categoryId,
-        itemCache
+        itemCache,
+        userItems ?? []
       );
       if (!itemId) return { status: "error", message: "상세항목(품목) 등록에 실패했습니다" };
 
@@ -450,7 +480,11 @@ export async function updateExpenseAction(
   }
 
   revalidatePath(LIST_PATH);
-  redirect(LIST_PATH);
+  revalidatePath(CALENDAR_PATH);
+  // F-1-10-2: 캘린더의 수정 팝업은 페이지 이동 없이 그 자리에서 닫혀야 하므로, addExpenseAction과
+  // 동일하게 여기서 강제 redirect하지 않고 성공 상태만 반환 — 화면 이동이 필요한 호출부
+  // (기존 /expenses/[id]/edit 페이지)는 ExpenseEntryForm의 onSuccess에서 직접 라우팅한다.
+  return { status: "success" };
 }
 
 // CategorySection의 setActiveAction과 동일하게 useActionState 없이 직접 호출하는 단순 서버 액션.
@@ -460,4 +494,5 @@ export async function deleteExpenseAction(id: string) {
   const supabase = await createSupabaseServerClient();
   await supabase.from("transaction").delete().eq("id", id);
   revalidatePath(LIST_PATH);
+  revalidatePath(CALENDAR_PATH);
 }

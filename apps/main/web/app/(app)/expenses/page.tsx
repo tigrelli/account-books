@@ -101,11 +101,24 @@ export default async function ExpensesListPage({
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
       <div className="mx-auto max-w-xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">지출 내역</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            총 {totalCount.toLocaleString("ko-KR")}건
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-[var(--color-text-primary)]">지출 내역</h1>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              총 {totalCount.toLocaleString("ko-KR")}건
+            </p>
+          </div>
+          <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm">
+            <span className="rounded-md bg-[var(--paylens-action)]/10 px-3 py-1.5 text-sm font-medium text-[var(--paylens-action)]">
+              목록
+            </span>
+            <Link
+              href="/expenses/calendar"
+              className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--paylens-bg)]"
+            >
+              캘린더
+            </Link>
+          </div>
         </div>
 
         <ExpenseFilters

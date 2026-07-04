@@ -30,8 +30,10 @@ export default async function ItemsPage() {
           </Link>
           <h1 className="mt-2 text-xl font-bold text-[var(--color-text-primary)]">품목 관리</h1>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            지출 입력 시 자동으로 쌓인 상세항목(품목) 목록입니다. 별칭을 추가하면 지출 입력
-            자동완성에서 같은 품목으로 인식됩니다.
+            지출 입력 시 자동으로 쌓인 상세항목(품목) 목록입니다. 비슷한 품목을 병합하면 과거 지출은
+            즉시 하나로 합산되고, 앞으로 같은 이름으로 다시 입력해도(자동완성에서 제안을 고르지 않고
+            직접 타이핑해도) 자동으로 병합된 품목으로 기록되어 품목별 통계(Top10 등)에서 계속 하나로
+            집계됩니다.
           </p>
         </div>
 

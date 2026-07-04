@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
-import { ExpenseEntryForm } from "../../ExpenseEntryForm";
+import { buildFormValuesFromTransaction } from "@/lib/expense-form-values";
+import { EditExpenseFormClient } from "./EditExpenseFormClient";
 import { DeleteExpenseButton } from "./DeleteExpenseButton";
 
 export default async function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,28 +57,10 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   if (!transaction) redirect("/expenses");
 
   const unitNameById = new Map((units ?? []).map((u) => [u.id, u.name]));
-
-  const initialValues = {
-    occurredAt: transaction.occurred_at.slice(0, 10),
-    paymentMethodId: transaction.payment_method_id,
-    categoryId: transaction.category_id,
-    vendorName: transaction.vendor?.name ?? "",
-    amount: transaction.has_detail ? "" : String(transaction.amount),
-  };
-
-  const initialDetailRows = transaction.has_detail
-    ? transaction.transaction_detail.map((d) => ({
-        id: d.id,
-        itemText: d.item_raw_text,
-        itemId: d.item_id,
-        quantityText:
-          d.quantity_raw_text ??
-          (d.quantity_value != null
-            ? `${d.quantity_value}${unitNameById.get(d.unit_id ?? "") ?? ""}`
-            : ""),
-        amount: String(d.amount),
-      }))
-    : [];
+  const { initialValues, initialDetailRows } = buildFormValuesFromTransaction(
+    transaction,
+    unitNameById
+  );
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
@@ -90,7 +73,7 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
         </div>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <ExpenseEntryForm
+          <EditExpenseFormClient
             paymentMethods={paymentMethods ?? []}
             categories={categories ?? []}
             vendors={vendors ?? []}

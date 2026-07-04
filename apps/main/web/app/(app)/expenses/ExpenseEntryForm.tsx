@@ -7,6 +7,9 @@ import { parseQuantityText } from "@/lib/quantity-parse";
 import { sumDetailAmounts } from "@/lib/expense-calculations";
 import { formatPaymentMethodLabel } from "@/lib/payment-method-format";
 import { itemAliasesToArray } from "@/lib/item-aliases";
+import { emptyValues, type DetailRow, type FieldValues } from "@/lib/expense-form-values";
+
+export type { DetailRow, FieldValues } from "@/lib/expense-form-values";
 
 type PaymentMethod = Database["public"]["Tables"]["payment_method"]["Row"];
 type Category = Database["public"]["Tables"]["category"]["Row"];
@@ -71,46 +74,10 @@ function findSimilarItem(query: string, items: Item[]): Item | null {
   return best?.item ?? null;
 }
 
-// toISOString()은 UTC 기준으로 변환하므로 KST 자정~오전 9시 사이엔 하루 전 날짜가 나옴 —
-// 로컬 타임존 기준 연/월/일을 직접 조합해야 사용자가 보는 "오늘"과 일치한다.
-function todayDateInputValue(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 const inputClassName =
   "h-10 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15";
 
 const initialState: ExpenseActionState = { status: "idle" };
-
-type FieldValues = {
-  occurredAt: string;
-  paymentMethodId: string;
-  categoryId: string;
-  vendorName: string;
-  amount: string;
-};
-
-const emptyValues: FieldValues = {
-  occurredAt: todayDateInputValue(),
-  paymentMethodId: "",
-  categoryId: "",
-  vendorName: "",
-  amount: "",
-};
-
-// 상세항목은 아직 서버로 제출되지 않는 UI 전용 상태 — 저장 연동은 F-1-5-6~11에서 처리.
-// itemId: 자동완성으로 기존 Item을 선택한 경우만 채워짐. 빈 문자열이면 자유 입력(신규 후보) 상태.
-type DetailRow = {
-  id: string;
-  itemText: string;
-  itemId: string;
-  quantityText: string;
-  amount: string;
-};
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -521,6 +488,7 @@ export function ExpenseEntryForm({
   transactionId,
   initialValues,
   initialDetailRows,
+  onSuccess,
 }: {
   paymentMethods: PaymentMethod[];
   categories: Category[];
@@ -531,6 +499,8 @@ export function ExpenseEntryForm({
   transactionId?: string;
   initialValues?: FieldValues;
   initialDetailRows?: DetailRow[];
+  // F-1-10-2: 캘린더 빠른 입력 팝업이 저장 성공 시 스스로 닫히도록 하는 훅 — 일반 페이지에서는 미사용.
+  onSuccess?: () => void;
 }) {
   const isEditMode = transactionId !== undefined;
   const [state, formAction, isPending] = useActionState(
@@ -560,6 +530,9 @@ export function ExpenseEntryForm({
     if (state.status === "success") {
       setValues(emptyValues);
       setDetailRows([]);
+      // onSuccess는 보통 부모(다른 컴포넌트)의 state를 바꾸는 콜백이라, 이 렌더 안에서 바로 호출하면
+      // "다른 컴포넌트를 렌더링 중에 업데이트" 경고가 발생함 — 현재 렌더 호출스택이 끝난 뒤로 미룸.
+      if (onSuccess) queueMicrotask(onSuccess);
     }
   }
 
