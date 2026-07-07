@@ -148,6 +148,7 @@ export interface PaymentMethodBreakdownItem {
   displayName: string;
   type: string;
   cardKind: string | null;
+  subtype: string | null;
   total: number;
 }
 
@@ -168,7 +169,7 @@ export async function getPaymentMethodBreakdown(
   const [{ data: paymentMethods }, { data: transactions }] = await Promise.all([
     supabase
       .from("payment_method")
-      .select("id, display_name, type, card_kind")
+      .select("id, display_name, type, card_kind, subtype")
       .eq("is_active", true),
     supabase
       .from("transaction")
@@ -191,6 +192,7 @@ export async function getPaymentMethodBreakdown(
       displayName: pm.display_name,
       type: pm.type,
       cardKind: pm.card_kind,
+      subtype: pm.subtype,
       total: totalsByPaymentMethod.get(pm.id) ?? 0,
     }))
     .filter((item) => item.total > 0)

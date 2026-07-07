@@ -79,6 +79,7 @@ export function PaymentMethodBreakdownChart({ data }: { data: PaymentMethodBreak
                   display_name: item.displayName,
                   type: item.type,
                   card_kind: item.cardKind,
+                  subtype: item.subtype,
                 }}
               />
               <span className="flex-1" />

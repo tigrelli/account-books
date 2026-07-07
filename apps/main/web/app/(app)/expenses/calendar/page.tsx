@@ -79,7 +79,7 @@ export default async function ExpenseCalendarPage({
     supabase
       .from("transaction")
       .select(
-        "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind), transaction_detail(*)"
+        "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind, subtype), transaction_detail(*)"
       )
       .gte("occurred_at", rangeStart.toISOString())
       .lt("occurred_at", rangeEnd.toISOString())
@@ -102,15 +102,15 @@ export default async function ExpenseCalendarPage({
             </p>
           </div>
           <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm">
+            <span className="rounded-md bg-[var(--paylens-action)]/10 px-3 py-1.5 text-sm font-medium text-[var(--paylens-action)]">
+              캘린더
+            </span>
             <Link
               href="/expenses"
               className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--paylens-bg)]"
             >
               목록
             </Link>
-            <span className="rounded-md bg-[var(--paylens-action)]/10 px-3 py-1.5 text-sm font-medium text-[var(--paylens-action)]">
-              캘린더
-            </span>
           </div>
         </div>
 

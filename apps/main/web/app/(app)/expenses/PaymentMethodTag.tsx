@@ -11,7 +11,7 @@ type PaymentMethod = Database["public"]["Tables"]["payment_method"]["Row"];
 export function PaymentMethodTag({
   paymentMethod,
 }: {
-  paymentMethod: Pick<PaymentMethod, "display_name" | "type" | "card_kind">;
+  paymentMethod: Pick<PaymentMethod, "display_name" | "type" | "card_kind" | "subtype">;
 }) {
   const Icon = paymentMethod.type === "CARD" ? CreditCard : Banknote;
   const colorStyle =
