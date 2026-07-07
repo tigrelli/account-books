@@ -6,11 +6,60 @@ import { budgetAmountSchema, periodRegex, CATEGORY_FIELD_PREFIX } from "@/lib/bu
 
 const PATH = "/budgets";
 const OVER_TOTAL_MESSAGE = "전체 예산을 초과하였습니다. 전체 예산을 확인하세요.";
+const SAVE_FAILURE_MESSAGE = "예산 저장에 실패했습니다";
 
 export type BudgetActionState =
   | { status: "idle" }
   | { status: "success" }
   | { status: "error"; message: string };
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+// 전체 예산 삭제(=미설정) → 카테고리별 예산도 근거를 잃으므로 함께 삭제. saveBudgetsAction(전체
+// 예산을 0으로 저장하는 경우)과 resetBudgetsAction(리셋 확인) 양쪽에서 공유. 실패해도 안전한
+// 순서: 카테고리를 먼저 지우고(실패해도 "카테고리 미설정" 상태라 정상), 전체 예산을 마지막에
+// 지운다(item-merge.ts와 동일한 원칙).
+async function deleteBudgetsForPeriod(
+  supabase: SupabaseServerClient,
+  userId: string,
+  period: string
+): Promise<string | null> {
+  const { error: categoryDeleteError } = await supabase
+    .from("budget")
+    .delete()
+    .eq("user_id", userId)
+    .eq("period", period);
+  if (categoryDeleteError) return SAVE_FAILURE_MESSAGE;
+
+  const { error: totalDeleteError } = await supabase
+    .from("budget_total")
+    .delete()
+    .eq("user_id", userId)
+    .eq("period", period);
+  if (totalDeleteError) return SAVE_FAILURE_MESSAGE;
+
+  return null;
+}
+
+// "리셋" 버튼(ConfirmDialog로 재확인 후 호출) — 화면의 입력값만 0으로 되돌리던 기존 방식은
+// "등록"을 다시 눌러야 실제로 삭제돼, 리셋 직후 새로고침하면 예전 값이 그대로 돌아오는
+// 문제가 있었다(PM 리포트, 2026-07-07). 재확인 다이얼로그를 이미 거치므로 확인 즉시 해당
+// period의 예산을 바로 삭제한다.
+export async function resetBudgetsAction(period: string): Promise<BudgetActionState> {
+  if (!periodRegex.test(period)) return { status: "error", message: "잘못된 요청입니다" };
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "로그인이 필요합니다" };
+
+  const error = await deleteBudgetsForPeriod(supabase, user.id, period);
+  if (error) return { status: "error", message: error };
+
+  revalidatePath(PATH);
+  return { status: "success" };
+}
 
 // 전체 예산 + 카테고리별 예산을 한 화면/한 번의 제출로 함께 저장한다(2026-07-03 PM 결정 —
 // 항목마다 따로 등록 버튼을 두지 않고, 화면 전체를 하나의 폼으로 취급). 각 금액 필드가
@@ -54,22 +103,9 @@ export async function saveBudgetsAction(
   if (!user) return { status: "error", message: "로그인이 필요합니다" };
 
   // 전체 예산을 0(=미설정)으로 저장 → 카테고리별 예산도 근거를 잃으므로 함께 삭제.
-  // 실패해도 안전한 순서: 카테고리를 먼저 지우고(실패해도 "카테고리 미설정" 상태라 정상),
-  // 전체 예산을 마지막에 지운다(item-merge.ts와 동일한 원칙).
   if (totalAmount === 0) {
-    const { error: categoryDeleteError } = await supabase
-      .from("budget")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("period", period);
-    if (categoryDeleteError) return { status: "error", message: "예산 저장에 실패했습니다" };
-
-    const { error: totalDeleteError } = await supabase
-      .from("budget_total")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("period", period);
-    if (totalDeleteError) return { status: "error", message: "예산 저장에 실패했습니다" };
+    const error = await deleteBudgetsForPeriod(supabase, user.id, period);
+    if (error) return { status: "error", message: error };
 
     revalidatePath(PATH);
     return { status: "success" };
