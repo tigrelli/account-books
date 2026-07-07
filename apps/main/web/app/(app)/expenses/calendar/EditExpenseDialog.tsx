@@ -58,26 +58,25 @@ export function EditExpenseDialog({
             지출 수정
           </Dialog.Title>
           {transaction && formValues && (
-            <>
-              <ExpenseEntryForm
-                key={transaction.id}
-                paymentMethods={paymentMethods}
-                categories={categories}
-                vendors={vendors}
-                items={items}
-                units={units}
-                transactionId={transaction.id}
-                initialValues={formValues.initialValues}
-                initialDetailRows={formValues.initialDetailRows}
-                onSuccess={() => onOpenChange(false)}
-              />
-              <div className="mt-4 flex justify-center border-t border-[#e2e8f0] pt-4">
+            <ExpenseEntryForm
+              key={transaction.id}
+              paymentMethods={paymentMethods}
+              categories={categories}
+              vendors={vendors}
+              items={items}
+              units={units}
+              transactionId={transaction.id}
+              initialValues={formValues.initialValues}
+              initialDetailRows={formValues.initialDetailRows}
+              onSuccess={() => onOpenChange(false)}
+              secondaryActions={
                 <DeleteExpenseButton
                   transactionId={transaction.id}
                   onDeleted={() => onOpenChange(false)}
+                  className="flex-1"
                 />
-              </div>
-            </>
+              }
+            />
           )}
         </Dialog.Popup>
       </Dialog.Portal>
