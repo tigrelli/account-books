@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LogoutButton } from "@/components/LogoutButton";
 import { navItems } from "./nav-items";
 
@@ -89,65 +90,70 @@ function BellIcon() {
 export function AppShell({ email, children }: { email: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // (app) 그룹 전체에서 쓰는 첫 TanStack Query Provider — 지출 목록의 기기별 페이지네이션/더보기
+  // 데이터 캐싱용(F-1-1-11 관련). useState로 한 번만 생성해 리렌더마다 새 인스턴스가 만들어지지 않게 한다.
+  const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* 상단바 */}
-      <header className="flex h-14 shrink-0 items-center justify-between bg-[var(--paylens-main)] px-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="메뉴 열기"
-            className="text-white md:hidden"
-          >
-            ☰
-          </button>
-          <Link href="/" className="text-lg font-bold text-white">
-            pay<span className="text-[var(--paylens-action)]">L</span>ens
-          </Link>
-        </div>
-        <BellIcon />
-      </header>
-
-      <div className="flex flex-1">
-        {/* 데스크탑 사이드바 */}
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar)] md:flex">
-          <SidebarNav pathname={pathname} />
-          <SidebarFooter email={email} />
-        </aside>
-
-        {/* 모바일 사이드바 (드로어) */}
-        {drawerOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
+    <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-dvh flex-col">
+        {/* 상단바 */}
+        <header className="flex h-14 shrink-0 items-center justify-between bg-[var(--paylens-main)] px-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              aria-label="메뉴 닫기"
-              onClick={() => setDrawerOpen(false)}
-              className="absolute inset-0 bg-black/40"
-            />
-            <aside className="relative flex h-full w-64 flex-col bg-[var(--color-sidebar)]">
-              <div className="flex h-14 items-center justify-between border-b border-[var(--color-sidebar-border)] px-4">
-                <span className="text-sm font-bold text-[var(--color-sidebar-foreground)]">
-                  메뉴
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  aria-label="메뉴 닫기"
-                  className="text-[var(--color-sidebar-foreground)]"
-                >
-                  ✕
-                </button>
-              </div>
-              <SidebarNav pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
-              <SidebarFooter email={email} />
-            </aside>
+              onClick={() => setDrawerOpen(true)}
+              aria-label="메뉴 열기"
+              className="text-white md:hidden"
+            >
+              ☰
+            </button>
+            <Link href="/" className="text-lg font-bold text-white">
+              pay<span className="text-[var(--paylens-action)]">L</span>ens
+            </Link>
           </div>
-        )}
+          <BellIcon />
+        </header>
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <div className="flex flex-1">
+          {/* 데스크탑 사이드바 */}
+          <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar)] md:flex">
+            <SidebarNav pathname={pathname} />
+            <SidebarFooter email={email} />
+          </aside>
+
+          {/* 모바일 사이드바 (드로어) */}
+          {drawerOpen && (
+            <div className="fixed inset-0 z-50 md:hidden">
+              <button
+                type="button"
+                aria-label="메뉴 닫기"
+                onClick={() => setDrawerOpen(false)}
+                className="absolute inset-0 bg-black/40"
+              />
+              <aside className="relative flex h-full w-64 flex-col bg-[var(--color-sidebar)]">
+                <div className="flex h-14 items-center justify-between border-b border-[var(--color-sidebar-border)] px-4">
+                  <span className="text-sm font-bold text-[var(--color-sidebar-foreground)]">
+                    메뉴
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    aria-label="메뉴 닫기"
+                    className="text-[var(--color-sidebar-foreground)]"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <SidebarNav pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+                <SidebarFooter email={email} />
+              </aside>
+            </div>
+          )}
+
+          <main className="min-w-0 flex-1">{children}</main>
+        </div>
       </div>
-    </div>
+    </QueryClientProvider>
   );
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
-import { ExpenseEntryForm } from "../ExpenseEntryForm";
+import { CreateExpenseFormClient } from "./CreateExpenseFormClient";
 
 export default async function CreateExpensePage() {
   const supabase = await createSupabaseServerClient();
@@ -56,7 +56,7 @@ export default async function CreateExpensePage() {
         </div>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <ExpenseEntryForm
+          <CreateExpenseFormClient
             paymentMethods={paymentMethods ?? []}
             categories={categories ?? []}
             vendors={vendors ?? []}

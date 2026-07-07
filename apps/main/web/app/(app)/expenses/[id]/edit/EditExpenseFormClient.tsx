@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Database } from "@account-books/types";
 import { ExpenseEntryForm, type DetailRow, type FieldValues } from "../../ExpenseEntryForm";
+import { DeleteExpenseButton } from "./DeleteExpenseButton";
 
 type PaymentMethod = Database["public"]["Tables"]["payment_method"]["Row"];
 type Category = Database["public"]["Tables"]["category"]["Row"];
@@ -21,6 +23,7 @@ export function EditExpenseFormClient({
   transactionId,
   initialValues,
   initialDetailRows,
+  listHref,
 }: {
   paymentMethods: PaymentMethod[];
   categories: Category[];
@@ -30,6 +33,7 @@ export function EditExpenseFormClient({
   transactionId: string;
   initialValues: FieldValues;
   initialDetailRows: DetailRow[];
+  listHref: string;
 }) {
   const router = useRouter();
 
@@ -43,7 +47,22 @@ export function EditExpenseFormClient({
       transactionId={transactionId}
       initialValues={initialValues}
       initialDetailRows={initialDetailRows}
-      onSuccess={() => router.push("/expenses")}
+      onSuccess={() => router.push(listHref)}
+      secondaryActions={
+        <>
+          <Link
+            href={listHref}
+            className="flex h-10 flex-1 items-center justify-center rounded-lg border border-[#e2e8f0] text-sm font-semibold text-[var(--color-text-primary)]"
+          >
+            목록
+          </Link>
+          <DeleteExpenseButton
+            transactionId={transactionId}
+            redirectHref={listHref}
+            className="flex-1"
+          />
+        </>
+      }
     />
   );
 }

@@ -1,11 +1,19 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { buildFormValuesFromTransaction } from "@/lib/expense-form-values";
+import { sanitizeExpenseListHref } from "@/lib/expense-list-href";
 import { EditExpenseFormClient } from "./EditExpenseFormClient";
-import { DeleteExpenseButton } from "./DeleteExpenseButton";
 
-export default async function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditExpensePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const { id } = await params;
+  const { from } = await searchParams;
+  const listHref = sanitizeExpenseListHref(from);
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -82,12 +90,9 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
             transactionId={transaction.id}
             initialValues={initialValues}
             initialDetailRows={initialDetailRows}
+            listHref={listHref}
           />
         </section>
-
-        <div className="flex justify-center">
-          <DeleteExpenseButton transactionId={transaction.id} />
-        </div>
       </div>
     </div>
   );
