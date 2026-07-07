@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Popover } from "@base-ui/react/popover";
 import type { Database } from "@account-books/types";
-import { CATEGORY_ICON_PRESETS } from "@/lib/category-schemas";
+import { CATEGORY_ICON_GROUPS } from "@/lib/category-schemas";
 import {
   addCategoryAction,
   updateCategoryAction,
@@ -21,11 +21,26 @@ function toFieldValues(category: Category): FieldValues {
   return { name: category.name, icon: category.icon ?? "" };
 }
 
+// value가 속한 그룹을 찾아 팝업을 열 때 그 탭이 먼저 보이게 한다 — 못 찾으면(빈 값 등) 첫 탭.
+function findGroupIndex(value: string): number {
+  const index = CATEGORY_ICON_GROUPS.findIndex((group) =>
+    (group.icons as readonly string[]).includes(value)
+  );
+  return index === -1 ? 0 : index;
+}
+
 function IconPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [groupIndex, setGroupIndex] = useState(() => findGroupIndex(value));
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setGroupIndex(findGroupIndex(value));
+      }}
+    >
       <input type="hidden" name="icon" value={value} />
       <Popover.Trigger
         type="button"
@@ -35,9 +50,26 @@ function IconPicker({ value, onChange }: { value: string; onChange: (v: string) 
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup className="w-56 rounded-lg border border-[#e2e8f0] bg-white p-2 shadow-lg">
-            <div className="grid grid-cols-6 gap-1.5">
-              {CATEGORY_ICON_PRESETS.map((icon) => (
+          <Popover.Popup className="w-64 rounded-lg border border-[#e2e8f0] bg-white p-2 shadow-lg">
+            <div className="mb-2 flex flex-wrap gap-1 border-b border-[#e2e8f0] pb-2">
+              {CATEGORY_ICON_GROUPS.map((group, i) => (
+                <button
+                  key={group.label}
+                  type="button"
+                  onClick={() => setGroupIndex(i)}
+                  aria-pressed={groupIndex === i}
+                  className={`rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap ${
+                    groupIndex === i
+                      ? "bg-[var(--paylens-action)]/10 text-[var(--paylens-action)]"
+                      : "text-[var(--color-text-secondary)]"
+                  }`}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+            <div className="grid max-h-56 grid-cols-6 gap-1.5 overflow-y-auto">
+              {(CATEGORY_ICON_GROUPS[groupIndex] ?? CATEGORY_ICON_GROUPS[0]).icons.map((icon) => (
                 <button
                   key={icon}
                   type="button"
