@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import type { Json } from "@account-books/types";
+import { toYearMonth } from "@account-books/utils";
 import { expenseSchema, expenseDetailSchema } from "@/lib/expense-schemas";
 import { parseQuantityText } from "@/lib/quantity-parse";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { resolveCanonicalItemId } from "@/lib/item-merge";
+import { invalidateItemTop10Cache } from "@/lib/stats-cache";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -274,6 +276,8 @@ export async function addExpenseAction(
       return { status: "error", message: "상세항목 저장에 실패했습니다" };
     }
 
+    await invalidateItemTop10Cache(user.id, toYearMonth(occurredAt));
+
     revalidatePath(PATH);
     revalidatePath(LIST_PATH);
     revalidatePath(CALENDAR_PATH);
@@ -339,10 +343,11 @@ export async function updateExpenseAction(
 
   const { data: existing } = await supabase
     .from("transaction")
-    .select("id")
+    .select("id, occurred_at")
     .eq("id", id)
     .maybeSingle();
   if (!existing) return { status: "error", message: "지출 내역을 찾을 수 없습니다" };
+  const previousPeriod = toYearMonth(existing.occurred_at);
 
   if (hasDetail) {
     const itemTexts = formData.getAll("detailItemText");
@@ -454,6 +459,11 @@ export async function updateExpenseAction(
 
     const { error: detailError } = await supabase.from("transaction_detail").insert(detailRows);
     if (detailError) return { status: "error", message: "상세항목 저장에 실패했습니다" };
+
+    // 날짜를 다른 달로 옮긴 경우 이전/이후 두 기간 캐시 모두 무효화(같으면 한 번만).
+    const newPeriod = toYearMonth(occurredAt);
+    await invalidateItemTop10Cache(user.id, previousPeriod);
+    if (newPeriod !== previousPeriod) await invalidateItemTop10Cache(user.id, newPeriod);
   } else {
     const parsed = expenseSchema.safeParse({
       occurredAt: formData.get("occurredAt"),
@@ -493,6 +503,10 @@ export async function updateExpenseAction(
 
     // 상세모드 → 직접입력 모드로 전환한 경우 남아있던 상세행 정리.
     await supabase.from("transaction_detail").delete().eq("transaction_id", id);
+
+    // 상세모드였다가 직접입력으로 바뀐 경우 이전 기간의 item_top10 캐시가 낡은 값을 들고 있을 수
+    // 있어 무효화(원래도 직접입력이었다면 캐시에 항목 자체가 없어 DEL이 그냥 no-op).
+    await invalidateItemTop10Cache(user.id, previousPeriod);
   }
 
   revalidatePath(LIST_PATH);
@@ -508,7 +522,23 @@ export async function updateExpenseAction(
 // transaction_detail은 FK ON DELETE CASCADE로 함께 삭제됨.
 export async function deleteExpenseAction(id: string) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 삭제 전에 무효화할 기간을 먼저 확보 — 삭제 후엔 이 행에서 occurred_at을 알 수 없다.
+  const { data: existing } = await supabase
+    .from("transaction")
+    .select("occurred_at")
+    .eq("id", id)
+    .maybeSingle();
+
   await supabase.from("transaction").delete().eq("id", id);
+
+  if (user && existing) {
+    await invalidateItemTop10Cache(user.id, toYearMonth(existing.occurred_at));
+  }
+
   revalidatePath(LIST_PATH);
   revalidatePath(CALENDAR_PATH);
 }
