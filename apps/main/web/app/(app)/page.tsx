@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { formatCurrency, formatCurrencySigned } from "@account-books/utils";
+import { periodRegex } from "@/lib/budget-schemas";
 import {
   getCategoryBreakdown,
   getDashboardSummary,
@@ -15,12 +16,27 @@ import { PaymentMethodBreakdownChart } from "./PaymentMethodBreakdownChart";
 
 const TREND_MONTHS = 6;
 
+// 예산/캘린더 화면과 동일하게 뮤테이션(지출 등록 등) 직후에도 최신 데이터를 봐야 하므로 캐시하지 않음.
+export const dynamic = "force-dynamic";
+
 function currentPeriod(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default async function HomePage() {
+function shiftPeriod(period: string, delta: number): string {
+  const parts = period.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const shifted = new Date(year, month - 1 + delta, 1);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -28,7 +44,8 @@ export default async function HomePage() {
 
   if (!user) redirect("/login");
 
-  const period = currentPeriod();
+  const { period: periodParam } = await searchParams;
+  const period = periodParam && periodRegex.test(periodParam) ? periodParam : currentPeriod();
   const [summary, trend, categoryBreakdown, paymentMethodBreakdown] = await Promise.all([
     getDashboardSummary(supabase, period),
     getMonthlyTrend(supabase, period, TREND_MONTHS),
@@ -46,17 +63,33 @@ export default async function HomePage() {
       <div className="mx-auto max-w-[1920px] space-y-6">
         {/* "홈" 타이틀(사이드바에 이미 강조 표시되어 중복)은 제거하고, 유일한 "몇 월 데이터를 보고
             있는지" 표시였던 기간 텍스트는 카드로 승격 + 자주 쓰는 바로가기 2개(캘린더/지출 입력)를
-            같은 카드 안에 나란히 배치 — 버튼이 텍스트 없이 혼자 떠 있지 않도록 균형을 맞춤. */}
+            같은 카드 안에 나란히 배치 — 버튼이 텍스트 없이 혼자 떠 있지 않도록 균형을 맞춤.
+            예산/캘린더 화면과 동일하게 이전/다음 달 이동을 추가(PM 요청, 2026-07-07) — 더 이상 항상
+            "이번달"이 아니므로 라벨에서 "이번달"을 빼고 기간 숫자로만 어느 달인지 나타낸다. */}
         <section className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm text-[var(--color-text-secondary)]">이번달 지출 요약</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
-              {period}
-            </p>
+            <p className="text-sm text-[var(--color-text-secondary)]">지출 요약</p>
+            <div className="mt-1 flex items-center gap-3">
+              <Link
+                href={`/?period=${shiftPeriod(period, -1)}`}
+                className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+              >
+                ← 이전 달
+              </Link>
+              <p className="font-mono text-2xl font-bold text-[var(--color-text-primary)]">
+                {period}
+              </p>
+              <Link
+                href={`/?period=${shiftPeriod(period, 1)}`}
+                className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+              >
+                다음 달 →
+              </Link>
+            </div>
           </div>
           <div className="flex gap-2">
             <Link
-              href="/expenses/calendar"
+              href={`/expenses/calendar?period=${period}`}
               className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0f766e] active:bg-[#0d6b63]"
             >
               📅 캘린더 바로가기
@@ -72,7 +105,7 @@ export default async function HomePage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-[var(--color-text-secondary)]">이번달 총지출</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">총지출</p>
             <p className="mt-2 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
               {formatCurrency(summary.totalThisMonth)}
             </p>
@@ -126,15 +159,13 @@ export default async function HomePage() {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="mb-2 text-sm text-[var(--color-text-secondary)]">
-              이번달 카테고리별 지출
-            </p>
+            <p className="mb-2 text-sm text-[var(--color-text-secondary)]">카테고리별 지출</p>
             <CategoryBreakdownChart data={categoryBreakdown} />
           </section>
         </div>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">이번달 지출분류별 지출</p>
+          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">지출분류별 지출</p>
           <PaymentMethodBreakdownChart data={paymentMethodBreakdown} />
         </section>
       </div>

@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 
 // 등록 완료 안내도 ConfirmDialog와 같은 레이어 팝업 디자인을 쓰되, 선택을 요구하지 않는
 // 단순 안내라 AlertDialog가 아닌 일반 Dialog(바깥 클릭/Esc로도 닫힘)를 사용한다.
+// ConfirmDialog와 함께 여러 화면에서 재사용하므로 공용 컴포넌트 폴더(_components)에 둔다.
 export function SuccessDialog({
   open,
   onOpenChange,
