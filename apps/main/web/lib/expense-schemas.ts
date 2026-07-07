@@ -9,6 +9,8 @@ const commonExpenseFields = {
     .trim()
     .min(1, "지출처를 입력해 주세요")
     .max(50, "지출처 이름이 너무 깁니다"),
+  // 숫자/특수문자 포함 자유 텍스트 — 형식 제한 없이 길이만 검증(PM 요청, 2026-07-07).
+  memo: z.string().max(1000, "비고는 1000자 이내로 입력해 주세요").optional(),
 };
 
 export const expenseSchema = z.object({

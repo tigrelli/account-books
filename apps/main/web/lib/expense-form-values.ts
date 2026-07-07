@@ -8,6 +8,7 @@ export type FieldValues = {
   categoryId: string;
   vendorName: string;
   amount: string;
+  memo: string;
 };
 
 // toISOString()은 UTC 기준으로 변환하므로 KST 자정~오전 9시 사이엔 하루 전 날짜가 나옴 —
@@ -27,6 +28,7 @@ export const emptyValues: FieldValues = {
   categoryId: "",
   vendorName: "",
   amount: "",
+  memo: "",
 };
 
 // 상세항목은 아직 서버로 제출되지 않는 UI 전용 상태 — 저장 연동은 F-1-5-6~11에서 처리.
@@ -48,6 +50,7 @@ export function buildFormValuesFromTransaction(
     category_id: string;
     amount: number;
     has_detail: boolean;
+    memo: string | null;
     vendor: { name: string } | null;
     transaction_detail: {
       id: string;
@@ -67,6 +70,7 @@ export function buildFormValuesFromTransaction(
     categoryId: transaction.category_id,
     vendorName: transaction.vendor?.name ?? "",
     amount: transaction.has_detail ? "" : String(transaction.amount),
+    memo: transaction.memo ?? "",
   };
 
   const initialDetailRows: DetailRow[] = transaction.has_detail

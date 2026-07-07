@@ -77,6 +77,9 @@ function findSimilarItem(query: string, items: Item[]): Item | null {
 const inputClassName =
   "h-10 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15";
 
+// 비고(메모) 입력 상한 — expense-schemas.ts의 memo 스키마와 반드시 동일한 값 유지.
+const MEMO_MAX_LENGTH = 1000;
+
 const initialState: ExpenseActionState = { status: "idle" };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -489,6 +492,7 @@ export function ExpenseEntryForm({
   initialValues,
   initialDetailRows,
   onSuccess,
+  secondaryActions,
 }: {
   paymentMethods: PaymentMethod[];
   categories: Category[];
@@ -501,6 +505,9 @@ export function ExpenseEntryForm({
   initialDetailRows?: DetailRow[];
   // F-1-10-2: 캘린더 빠른 입력 팝업이 저장 성공 시 스스로 닫히도록 하는 훅 — 일반 페이지에서는 미사용.
   onSuccess?: () => void;
+  // 수정 모드에서 "목록"/"삭제" 버튼을 제출 버튼과 같은 한 줄에 배치하기 위한 슬롯(PM 요청,
+  // 2026-07-05) — 신규 입력 모드(저장하기)에서는 전달하지 않아 기존처럼 버튼 하나만 표시.
+  secondaryActions?: React.ReactNode;
 }) {
   const isEditMode = transactionId !== undefined;
   const [state, formAction, isPending] = useActionState(
@@ -637,14 +644,40 @@ export function ExpenseEntryForm({
         </div>
       )}
 
-      <div className="border-t border-[#e2e8f0] pt-4">
+      <div>
+        <div className="flex items-baseline justify-between">
+          <FieldLabel>비고</FieldLabel>
+          <span
+            className={`mb-1.5 text-xs ${
+              values.memo.length > MEMO_MAX_LENGTH
+                ? "font-semibold text-[var(--paylens-accent)]"
+                : "text-[var(--color-text-secondary)]"
+            }`}
+          >
+            {values.memo.length.toLocaleString("ko-KR")}/{MEMO_MAX_LENGTH.toLocaleString("ko-KR")}자
+          </span>
+        </div>
+        <textarea
+          name="memo"
+          rows={3}
+          maxLength={MEMO_MAX_LENGTH}
+          value={values.memo}
+          onChange={(e) => setValues({ ...values, memo: e.target.value })}
+          placeholder="메모를 입력해 주세요 (선택)"
+          className={`${inputClassName} h-auto resize-none py-2`}
+        />
+        <FieldError messages={errors.memo} />
+      </div>
+
+      <div className="flex gap-2 border-t border-[#e2e8f0] pt-4">
         <button
           type="submit"
           disabled={isPending}
-          className="h-10 w-full rounded-lg bg-[var(--paylens-action)] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-10 flex-1 rounded-lg bg-[var(--paylens-action)] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "저장 중…" : isEditMode ? "수정하기" : "저장하기"}
+          {isPending ? "저장 중…" : isEditMode ? "수정" : "저장"}
         </button>
+        {secondaryActions}
       </div>
     </form>
   );

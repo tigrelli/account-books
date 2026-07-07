@@ -171,6 +171,7 @@ export async function addExpenseAction(
       paymentMethodId: formData.get("paymentMethodId"),
       categoryId: formData.get("categoryId"),
       vendorName: formData.get("vendorName"),
+      memo: formData.get("memo"),
       details,
     });
 
@@ -186,6 +187,7 @@ export async function addExpenseAction(
       paymentMethodId,
       categoryId,
       vendorName,
+      memo,
       details: parsedDetails,
     } = parsed.data;
 
@@ -254,6 +256,7 @@ export async function addExpenseAction(
         amount: totalAmount,
         has_detail: true,
         occurred_at: new Date(occurredAt).toISOString(),
+        memo: memo?.trim() || null,
       })
       .select("id")
       .single();
@@ -283,6 +286,7 @@ export async function addExpenseAction(
     categoryId: formData.get("categoryId"),
     vendorName: formData.get("vendorName"),
     amount: formData.get("amount"),
+    memo: formData.get("memo"),
   });
 
   if (!parsed.success) {
@@ -292,7 +296,7 @@ export async function addExpenseAction(
     };
   }
 
-  const { occurredAt, paymentMethodId, categoryId, vendorName, amount } = parsed.data;
+  const { occurredAt, paymentMethodId, categoryId, vendorName, amount, memo } = parsed.data;
 
   const vendorId = await resolveVendorId(supabase, user.id, vendorName);
   if (!vendorId) return { status: "error", message: "지출처 등록에 실패했습니다" };
@@ -305,6 +309,7 @@ export async function addExpenseAction(
     input_type: "MANUAL",
     amount,
     occurred_at: new Date(occurredAt).toISOString(),
+    memo: memo?.trim() || null,
   });
 
   if (transactionError) return { status: "error", message: "지출 저장에 실패했습니다" };
@@ -357,6 +362,7 @@ export async function updateExpenseAction(
       paymentMethodId: formData.get("paymentMethodId"),
       categoryId: formData.get("categoryId"),
       vendorName: formData.get("vendorName"),
+      memo: formData.get("memo"),
       details,
     });
 
@@ -372,6 +378,7 @@ export async function updateExpenseAction(
       paymentMethodId,
       categoryId,
       vendorName,
+      memo,
       details: parsedDetails,
     } = parsed.data;
 
@@ -436,6 +443,7 @@ export async function updateExpenseAction(
         amount: totalAmount,
         has_detail: true,
         occurred_at: new Date(occurredAt).toISOString(),
+        memo: memo?.trim() || null,
       })
       .eq("id", id);
 
@@ -453,6 +461,7 @@ export async function updateExpenseAction(
       categoryId: formData.get("categoryId"),
       vendorName: formData.get("vendorName"),
       amount: formData.get("amount"),
+      memo: formData.get("memo"),
     });
 
     if (!parsed.success) {
@@ -462,7 +471,7 @@ export async function updateExpenseAction(
       };
     }
 
-    const { occurredAt, paymentMethodId, categoryId, vendorName, amount } = parsed.data;
+    const { occurredAt, paymentMethodId, categoryId, vendorName, amount, memo } = parsed.data;
 
     const vendorId = await resolveVendorId(supabase, user.id, vendorName);
     if (!vendorId) return { status: "error", message: "지출처 등록에 실패했습니다" };
@@ -476,6 +485,7 @@ export async function updateExpenseAction(
         amount,
         has_detail: false,
         occurred_at: new Date(occurredAt).toISOString(),
+        memo: memo?.trim() || null,
       })
       .eq("id", id);
 
