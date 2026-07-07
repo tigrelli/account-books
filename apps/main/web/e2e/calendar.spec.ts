@@ -39,7 +39,8 @@ test.describe("지출 캘린더 — 진입/토글", () => {
     await signUpAndLogin(page);
     await page.goto("/expenses/calendar");
     await page.click('a:has-text("목록")');
-    await expect(page).toHaveURL("/expenses");
+    // F-1-5-12(페이지네이션) 이후 목록 화면은 진입 시 ?page=1로 정규화된다.
+    await expect(page).toHaveURL(/\/expenses(\?page=1)?$/);
   });
 
   test("이전 달/다음 달 이동 시 기간 표시가 바뀐다", async ({ page }) => {
@@ -82,7 +83,7 @@ test.describe("지출 캘린더 — 빠른 입력 팝업", () => {
     await page.locator('select[name="categoryId"]').last().selectOption({ index: 1 });
     await page.locator('input[name="vendorName"]').last().fill("빠른입력테스트마트");
     await page.locator('input[placeholder="0"]').last().fill("7700");
-    await page.locator('button[type="submit"]:has-text("저장하기")').last().click();
+    await page.locator('button[type="submit"]:has-text("저장")').last().click();
 
     // 팝업이 닫힌다
     await expect(page.getByText(`${key} 지출 입력`)).not.toBeVisible();
@@ -123,7 +124,7 @@ test.describe("지출 캘린더 — 수정/삭제 팝업", () => {
     await expect(page.getByText("지출 수정")).toBeVisible();
 
     await page.locator('input[placeholder="0"]').last().fill("2000");
-    await page.locator('button[type="submit"]:has-text("수정하기")').last().click();
+    await page.locator('button[type="submit"]:has-text("수정")').last().click();
 
     await expect(page.getByText("지출 수정")).not.toBeVisible();
     await expect(page).toHaveURL(/\/expenses\/calendar/);
@@ -138,8 +139,11 @@ test.describe("지출 캘린더 — 수정/삭제 팝업", () => {
     await page.click('button:has-text("삭제팝업마트")');
     await expect(page.getByText("지출 수정")).toBeVisible();
 
-    page.once("dialog", (dialog) => dialog.accept());
-    await page.click('button:has-text("이 지출 내역 삭제")');
+    // 삭제는 네이티브 confirm()이 아니라 공용 ConfirmDialog(레이어 팝업, 2026-07-05)를 거친다 —
+    // 트리거 버튼("삭제")과 팝업 확인 버튼("삭제")이 이름이 같아 팝업이 뜨기 전/후로 나눠 클릭.
+    await page.getByRole("button", { name: "삭제", exact: true }).click();
+    await expect(page.getByText("이 지출 내역을 삭제하시겠습니까?")).toBeVisible();
+    await page.getByRole("alertdialog").getByRole("button", { name: "삭제", exact: true }).click();
 
     await expect(page.getByText("지출 수정")).not.toBeVisible();
     await expect(page).toHaveURL(/\/expenses\/calendar/);

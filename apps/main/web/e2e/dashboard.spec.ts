@@ -40,7 +40,8 @@ test.describe("대시보드 — 지출 없음", () => {
 
     await expect(page.getByText("₩0", { exact: true })).toBeVisible();
     await expect(page.getByText("비교할 전월 데이터 없음")).toBeVisible();
-    await expect(page.getByText("아직 지출 내역이 없어요")).toHaveCount(3); // 월별추이 + 카테고리별 + 지출분류별
+    // 월별추이 + 카테고리별 + 지출분류별 + 지출처 Top10(F-3-1-2) + 상세항목 Top10(F-3-1-3)
+    await expect(page.getByText("아직 지출 내역이 없어요")).toHaveCount(5);
   });
 });
 
@@ -58,7 +59,9 @@ test.describe("대시보드 — 지출 입력 후 반영", () => {
     await submitExpense(page, "테스트마트", "15000");
 
     await page.goto("/");
-    await expect(page.getByText("아직 지출 내역이 없어요")).toHaveCount(0);
+    // 상세항목 Top10(F-3-1-3)은 transaction_detail 기반이라, 상세항목 없이 등록한 이 지출로는
+    // 채워지지 않고 계속 빈 상태로 남는다 — 나머지(월별추이/카테고리별/지출분류별/지출처 Top10)는 반영됨.
+    await expect(page.getByText("아직 지출 내역이 없어요")).toHaveCount(1);
     // 카테고리별(단일 카테고리)·지출분류별(현금 지갑 단독) 차트 모두 100%로 표시됨
     await expect(page.getByText("· 100%").first()).toBeVisible();
   });
