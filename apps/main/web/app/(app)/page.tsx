@@ -8,11 +8,18 @@ import {
   getDashboardSummary,
   getMonthlyTrend,
   getPaymentMethodBreakdown,
+  getVendorTopN,
+  getItemTop10Display,
+  getUnitPriceOptions,
+  getUnitPriceTrend,
 } from "@/lib/dashboard-queries";
 import { BudgetGauge } from "./budgets/BudgetGauge";
 import { MonthlyTrendChart } from "./MonthlyTrendChart";
 import { CategoryBreakdownChart } from "./CategoryBreakdownChart";
 import { PaymentMethodBreakdownChart } from "./PaymentMethodBreakdownChart";
+import { VendorTopNChart } from "./VendorTopNChart";
+import { ItemTop10Chart } from "./ItemTop10Chart";
+import { UnitPriceTrendChart } from "./UnitPriceTrendChart";
 
 const TREND_MONTHS = 6;
 
@@ -35,7 +42,7 @@ function shiftPeriod(period: string, delta: number): string {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; unitItem?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -44,15 +51,41 @@ export default async function HomePage({
 
   if (!user) redirect("/login");
 
-  const { period: periodParam } = await searchParams;
+  const { period: periodParam, unitItem: unitItemParam } = await searchParams;
   const period = periodParam && periodRegex.test(periodParam) ? periodParam : currentPeriod();
-  const [summary, trend, categoryBreakdown, paymentMethodBreakdown] = await Promise.all([
+  const [
+    summary,
+    trend,
+    categoryBreakdown,
+    paymentMethodBreakdown,
+    vendorTopN,
+    itemTop10,
+    unitPriceOptions,
+  ] = await Promise.all([
     getDashboardSummary(supabase, period),
     getMonthlyTrend(supabase, period, TREND_MONTHS),
     getCategoryBreakdown(supabase, period),
     getPaymentMethodBreakdown(supabase, period),
+    getVendorTopN(supabase, period),
+    getItemTop10Display(supabase, user.id, period),
+    getUnitPriceOptions(supabase, period, TREND_MONTHS),
   ]);
   const isIncrease = summary.changeRate !== null && summary.changeRate > 0;
+
+  // F-3-1-4: ?unitItem=itemId:unitId가 선택 목록에 없으면(잘못된 값/최초 진입) 가장 많이 기록된
+  // 조합을 기본값으로 — select 자체가 항상 유효한 선택지를 보여줘야 하므로 여기서 폴백을 정한다.
+  const selectedUnitOption =
+    unitPriceOptions.find((option) => `${option.itemId}:${option.unitId}` === unitItemParam) ??
+    unitPriceOptions[0];
+  const unitPriceTrend = selectedUnitOption
+    ? await getUnitPriceTrend(
+        supabase,
+        selectedUnitOption.itemId,
+        selectedUnitOption.unitId,
+        period,
+        TREND_MONTHS
+      )
+    : [];
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
@@ -164,9 +197,38 @@ export default async function HomePage({
           </section>
         </div>
 
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="mb-2 text-sm text-[var(--color-text-secondary)]">지출분류별 지출</p>
+            <PaymentMethodBreakdownChart data={paymentMethodBreakdown} />
+          </section>
+
+          <section className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="mb-2 text-sm text-[var(--color-text-secondary)]">지출처 Top 10</p>
+            <VendorTopNChart data={vendorTopN} />
+          </section>
+        </div>
+
         <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">지출분류별 지출</p>
-          <PaymentMethodBreakdownChart data={paymentMethodBreakdown} />
+          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">
+            상세항목 Top 10 <span className="text-xs font-normal">(클릭하면 지출처별 내역)</span>
+          </p>
+          <ItemTop10Chart data={itemTop10} period={period} />
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">
+            단가 분석 <span className="text-xs font-normal">(품목×단위별 평균가 추이)</span>
+          </p>
+          <UnitPriceTrendChart
+            period={period}
+            options={unitPriceOptions}
+            selectedKey={
+              selectedUnitOption ? `${selectedUnitOption.itemId}:${selectedUnitOption.unitId}` : ""
+            }
+            trend={unitPriceTrend}
+            unitName={selectedUnitOption?.unitName ?? ""}
+          />
         </section>
       </div>
     </div>
