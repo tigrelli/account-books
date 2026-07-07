@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LogoutButton } from "@/components/LogoutButton";
-import { navItems } from "./nav-items";
+import { navItems, adminNavItem, type NavItem } from "./nav-items";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -14,14 +14,21 @@ function isActive(pathname: string, href: string) {
 
 function SidebarNav({
   pathname,
+  isAdmin,
   onNavigate = () => {},
 }: {
   pathname: string;
+  isAdmin: boolean;
   onNavigate?: () => void;
 }) {
+  // 동의어 사전 관리(F-3-1-5)는 운영자 전용 — RLS도 authenticated 전체에 쓰기 정책을 안 열어두는
+  // 구조라, 사이드바에서도 운영자가 아니면 아예 노출하지 않는다(진입 시도 자체를 줄임 — 실제
+  // 접근 차단은 어디까지나 서버 액션의 isAdminEmail 재검증이 진짜 방어선).
+  const items: NavItem[] = isAdmin ? [...navItems, adminNavItem] : navItems;
+
   return (
     <nav className="flex-1 space-y-1 px-3 py-4">
-      {navItems.map((item) => (
+      {items.map((item) => (
         <div key={item.href}>
           <Link
             href={item.href}
@@ -87,7 +94,15 @@ function BellIcon() {
   );
 }
 
-export function AppShell({ email, children }: { email: string; children: React.ReactNode }) {
+export function AppShell({
+  email,
+  isAdmin,
+  children,
+}: {
+  email: string;
+  isAdmin: boolean;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   // (app) 그룹 전체에서 쓰는 첫 TanStack Query Provider — 지출 목록의 기기별 페이지네이션/더보기
@@ -118,7 +133,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
         <div className="flex flex-1">
           {/* 데스크탑 사이드바 */}
           <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-sidebar-border)] bg-[var(--color-sidebar)] md:flex">
-            <SidebarNav pathname={pathname} />
+            <SidebarNav pathname={pathname} isAdmin={isAdmin} />
             <SidebarFooter email={email} />
           </aside>
 
@@ -145,7 +160,11 @@ export function AppShell({ email, children }: { email: string; children: React.R
                     ✕
                   </button>
                 </div>
-                <SidebarNav pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+                <SidebarNav
+                  pathname={pathname}
+                  isAdmin={isAdmin}
+                  onNavigate={() => setDrawerOpen(false)}
+                />
                 <SidebarFooter email={email} />
               </aside>
             </div>

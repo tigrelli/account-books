@@ -25,3 +25,15 @@ ON CONFLICT (id) DO NOTHING;
 -- 현금(지갑) 1종은 auth.users INSERT 트리거(create_default_payment_methods)가 자동 생성.
 -- 로컬 개발 시 테스트 사용자를 Supabase 대시보드 또는 Auth API로 생성하면 트리거가 동작함.
 -- 은행 계좌(AUTO_TRANSFER) 및 카드(CARD)는 사용자가 앱에서 직접 등록.
+
+-- [F-3-1-5] SYNONYM_DICTIONARY 최소 시드 (데이터정책_및_시드정의서 1-4)
+-- 전체 사용자 공통 참고 자료 — 운영자 어드민 화면(F-3-1-5)에서 이어서 추가/삭제 가능.
+INSERT INTO public.synonym_dictionary (group_key, term)
+VALUES
+    ('GROUP_GREEN_ONION', '대파'),
+    ('GROUP_GREEN_ONION', '파'),
+    ('GROUP_GREEN_ONION', '쪽파'),
+    ('GROUP_GARLIC', '마늘'),
+    ('GROUP_GARLIC', '깐마늘'),
+    ('GROUP_GARLIC', '다진마늘')
+ON CONFLICT (group_key, term) DO NOTHING;

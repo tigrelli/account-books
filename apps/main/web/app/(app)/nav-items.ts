@@ -22,3 +22,12 @@ export const navItems: NavItem[] = [
     ],
   },
 ];
+
+// F-3-1-5: 운영자 전용 메뉴 — navItems와 분리해서 AppShell(SidebarNav)이 isAdmin일 때만 조건부로
+// 붙인다(일반 사용자에게는 아예 노출 안 함). 관리자 화면이 아직 이거 하나뿐이라 "관리자" 상위
+// 메뉴에 별도 인덱스 페이지를 만들지 않고(죽은 링크 방지) 바로 하위 화면으로 연결. 실제 접근
+// 차단은 lib/admin.ts의 서버 측 재검증이 진짜 방어선이고, 이건 어디까지나 UI 노출 여부일 뿐.
+export const adminNavItem: NavItem = {
+  label: "동의어 사전 관리",
+  href: "/admin/synonyms",
+};

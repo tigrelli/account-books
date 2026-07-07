@@ -222,6 +222,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      synonym_dictionary: {
+        Row: {
+          created_at: string;
+          group_key: string;
+          id: string;
+          term: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          group_key: string;
+          id?: string;
+          term: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          group_key?: string;
+          id?: string;
+          term?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       transaction: {
         Row: {
           adjustment_amount: number;
@@ -426,10 +450,141 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      item_stats: {
+        Row: {
+          avg_amount: number | null;
+          item_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          transaction_count: number | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_detail_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "item";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      item_unit_stats: {
+        Row: {
+          avg_unit_price: number | null;
+          item_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          total_quantity: number | null;
+          unit_id: string | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_detail_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "item";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_detail_unit_id_fkey";
+            columns: ["unit_id"];
+            isOneToOne: false;
+            referencedRelation: "unit";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tx_stats: {
+        Row: {
+          category_id: string | null;
+          payment_method_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          transaction_count: number | null;
+          user_id: string | null;
+          vendor_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaction_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "category";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_payment_method_id_fkey";
+            columns: ["payment_method_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_method";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaction_vendor_id_fkey";
+            columns: ["vendor_id"];
+            isOneToOne: false;
+            referencedRelation: "vendor";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      get_item_stats: {
+        Args: { p_period?: string };
+        Returns: {
+          avg_amount: number | null;
+          item_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          transaction_count: number | null;
+          user_id: string | null;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "item_stats";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      get_item_unit_stats: {
+        Args: { p_period?: string };
+        Returns: {
+          avg_unit_price: number | null;
+          item_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          total_quantity: number | null;
+          unit_id: string | null;
+          user_id: string | null;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "item_unit_stats";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      get_tx_stats: {
+        Args: { p_period?: string };
+        Returns: {
+          category_id: string | null;
+          payment_method_id: string | null;
+          period: string | null;
+          total_amount: number | null;
+          transaction_count: number | null;
+          user_id: string | null;
+          vendor_id: string | null;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "tx_stats";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
     };
     Enums: {
       [_ in never]: never;
