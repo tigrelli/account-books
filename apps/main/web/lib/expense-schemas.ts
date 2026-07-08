@@ -1,9 +1,17 @@
 import { z } from "zod";
 
+// <select>의 플레이스홀더 옵션(예: "지출분류 선택")은 disabled라 아무 것도 고르지 않으면 브라우저가
+// 아예 선택 상태를 만들지 않아(selectedIndex -1) FormData에 필드 자체가 안 실리고 formData.get()이
+// null을 반환한다 — z.string()이 이 null을 타입 에러로 먼저 걸러버려 아래 min() 커스텀 메시지 대신
+// zod 기본 영문 메시지("Invalid input: expected string, received null")가 나가는 문제를 방지하기
+// 위해 null/undefined를 빈 문자열로 정규화한 뒤 검증한다.
+const requiredSelectField = (message: string) =>
+  z.preprocess((value) => value ?? "", z.string().min(1, message));
+
 const commonExpenseFields = {
   occurredAt: z.string().min(1, "날짜를 선택해 주세요"),
-  paymentMethodId: z.string().min(1, "지출분류를 선택해 주세요"),
-  categoryId: z.string().min(1, "지출항목을 선택해 주세요"),
+  paymentMethodId: requiredSelectField("지출분류를 선택해 주세요"),
+  categoryId: requiredSelectField("지출항목을 선택해 주세요"),
   vendorName: z
     .string()
     .trim()
