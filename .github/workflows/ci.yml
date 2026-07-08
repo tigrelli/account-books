@@ -16,9 +16,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        # 버전은 package.json의 "packageManager": "pnpm@11.9.0"에서 자동 감지된다 — 여기서 또
+        # 버전을 명시하면 "Multiple versions of pnpm specified" 에러로 셋업 자체가 실패한다
+        # (2026-07-08 실제 CI 실행에서 발견, 첫 스텝이라 이후 전체 스텝이 실행조차 안 됐음).
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,9 +54,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        # 버전은 package.json의 "packageManager": "pnpm@11.9.0"에서 자동 감지된다 — 여기서 또
+        # 버전을 명시하면 "Multiple versions of pnpm specified" 에러로 셋업 자체가 실패한다
+        # (2026-07-08 실제 CI 실행에서 발견, 첫 스텝이라 이후 전체 스텝이 실행조차 안 됐음).
         uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
