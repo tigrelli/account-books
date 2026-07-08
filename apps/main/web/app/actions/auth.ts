@@ -12,7 +12,8 @@ export async function logoutAction() {
 
 // Vercel Preview 배포마다 URL이 달라지고 SITE_URL 같은 고정 env var로는 대응이 안 되므로,
 // 요청 헤더에서 실제 접속 origin을 읽는다(Server Action도 그 액션을 호출한 요청의 헤더를 그대로 읽을 수 있음).
-async function getOrigin(): Promise<string> {
+// signUpAction(이메일 인증 링크 리다이렉트)에서도 재사용하므로 export.
+export async function getOrigin(): Promise<string> {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "http";
