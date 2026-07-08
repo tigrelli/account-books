@@ -1,0 +1,12 @@
+{
+  "name": "@account-books/scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "sync-test-sheet": "node sync-test-sheet.mjs"
+  },
+  "dependencies": {
+    "googleapis": "^173.0.0"
+  }
+}

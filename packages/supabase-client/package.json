@@ -1,0 +1,32 @@
+{
+  "name": "@account-books/supabase-client",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./server": "./src/server.ts",
+    "./middleware": "./src/middleware.ts"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@account-books/types": "workspace:*",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.50.0"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0"
+  },
+  "devDependencies": {
+    "@account-books/config": "workspace:*",
+    "@types/node": "^20",
+    "eslint": "^9.39.4",
+    "next": "16.2.9",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.62.0"
+  }
+}

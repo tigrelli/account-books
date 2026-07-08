@@ -1,0 +1,4 @@
+{
+  "extends": "@account-books/config/tsconfig/package",
+  "include": ["src/**/*.ts"]
+}

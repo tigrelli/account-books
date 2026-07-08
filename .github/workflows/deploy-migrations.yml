@@ -1,0 +1,44 @@
+name: Deploy Migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  deploy:
+    name: Deploy DB Migrations to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # 버전은 package.json의 "packageManager" 필드에서 자동 감지 — 여기서 또 지정하면
+        # "Multiple versions of pnpm specified" 에러 발생(ci.yml과 동일 이슈).
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Link project
+        # supabase CLI 2.x부터 `db push`는 --project-ref를 더 이상 받지 않는다(2026-07-08 dry-run 중
+        # "Unrecognized flag: --project-ref" 확인) — 먼저 link한 뒤 --linked로 push해야 한다.
+        run: pnpm supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} -p "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Deploy migrations
+        run: pnpm supabase db push --linked
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

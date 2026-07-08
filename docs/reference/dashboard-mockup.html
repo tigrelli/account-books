@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>payLens — 대시보드 시안</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── CSS Variables ── */
+    :root {
+      --color-paylens-main: #0b2545;
+      --color-paylens-sub: #134074;
+      --color-paylens-accent: #ee6c4d;  /* 데이터 강조: 지출 경고, 차트 하이라이트, 마이너스 금액 */
+      --color-action: #0d9488;          /* UI 액션: CTA 버튼, 링크, 활성 상태 */
+      --color-data-soft: #ea580c;       /* 데이터 보조: 잔여 예산, 중립 배지, 태그 */
+      --color-paylens-bg: #f8fafc;
+      --color-text-primary: #0f172a;
+      --color-text-secondary: #475569;
+      --font-main: 'Pretendard', 'Noto Sans KR', sans-serif;
+      --font-data: 'JetBrains Mono', monospace;
+      --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+      --border-radius-m: 12px;
+
+      /* Chart palette */
+      --chart-1: #ee6c4d;
+      --chart-2: #134074;
+      --chart-3: #3a86ff;
+      --chart-4: #06d6a0;
+      --chart-5: #8338ec;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-main);
+      background: var(--color-paylens-bg);
+      color: var(--color-text-primary);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      min-height: 100vh;
+      background: var(--color-paylens-main);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .logo-area {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .logo-wordmark {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-wordmark span {
+      color: var(--color-action);
+    }
+
+    .logo-sub {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 2px;
+      text-transform: uppercase;
+    }
+
+    .nav {
+      flex: 1;
+      padding: 16px 0;
+    }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      padding: 12px 20px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .nav-item:hover {
+      color: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-item.active {
+      color: #ffffff;
+      background: rgba(255,255,255,0.08);
+      border-left-color: var(--color-action);
+    }
+
+    .nav-icon {
+      width: 16px;
+      text-align: center;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .user-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--color-paylens-sub);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-email { font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: 60px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--color-paylens-main);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .period-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .period-selector .arrow { color: var(--color-text-secondary); font-size: 10px; }
+
+    .btn-add {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--color-action);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-main);
+    }
+
+    /* ── Content ── */
+    .content {
+      flex: 1;
+      padding: 24px 28px;
+      overflow-y: auto;
+    }
+
+    /* ── Grid ── */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .grid-2-1 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: var(--border-radius-m);
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--color-paylens-main);
+      margin-bottom: 14px;
+    }
+
+    /* ── Summary Cards ── */
+    .summary-card {
+      background: #fff;
+      border-radius: var(--border-radius-m);
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .summary-card.accent::before { background: var(--color-paylens-accent); }
+    .summary-card.navy::before { background: var(--color-paylens-sub); }
+    .summary-card.green::before { background: var(--color-data-soft); }
+
+    .sc-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .sc-value {
+      font-family: var(--font-data);
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--color-paylens-main);
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+
+    .sc-unit { font-size: 14px; font-weight: 500; margin-right: 2px; }
+
+    .sc-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+
+    .badge-up { color: var(--color-paylens-accent); font-weight: 600; font-size: 11px; }
+    .badge-down { color: var(--color-data-soft); font-weight: 600; font-size: 11px; }
+
+    /* ── Budget Bar ── */
+    .budget-bar-wrap { margin-top: 10px; }
+    .budget-bar-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-secondary); margin-bottom: 5px; }
+    .budget-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .budget-bar-fill { height: 100%; border-radius: 3px; background: var(--color-paylens-accent); }
+    .budget-bar-fill.safe { background: var(--color-data-soft); }
+    .budget-bar-fill.warn { background: #f59e0b; }
+
+    /* ── Donut Chart (SVG) ── */
+    .donut-section {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .donut-chart-wrap {
+      flex-shrink: 0;
+      position: relative;
+      width: 140px;
+      height: 140px;
+    }
+
+    .donut-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .donut-center-label { font-size: 10px; color: var(--color-text-secondary); display: block; margin-bottom: 2px; }
+    .donut-center-value { font-family: var(--font-data); font-size: 16px; font-weight: 600; color: var(--color-paylens-main); display: block; }
+
+    .legend { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .legend-left { display: flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .legend-name { color: var(--color-text-primary); font-weight: 500; }
+    .legend-pct { color: var(--color-text-secondary); font-size: 11px; }
+    .legend-amt { font-family: var(--font-data); font-size: 12px; font-weight: 500; color: var(--color-paylens-main); }
+
+    /* ── Line Chart (SVG) ── */
+    .line-chart-wrap { width: 100%; overflow: hidden; }
+
+    .chart-x-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--color-text-secondary);
+      padding: 0 4px;
+      margin-top: 4px;
+    }
+
+    /* ── Bar Chart ── */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 80px;
+    }
+
+    .bar-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bar {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      background: var(--color-paylens-sub);
+    }
+
+    .bar.accent { background: var(--color-paylens-accent); }
+    .bar-label { font-size: 9px; color: var(--color-text-secondary); }
+
+    /* ── Transaction List ── */
+    .tx-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .tx-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .tx-item:last-child { border-bottom: none; }
+
+    .tx-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+    .tx-amount {
+      font-family: var(--font-data);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      flex-shrink: 0;
+    }
+
+    .tx-amount.minus { color: var(--color-paylens-accent); }
+
+    /* ── Top Vendors ── */
+    .vendor-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .vendor-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .vendor-rank {
+      width: 20px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      flex-shrink: 0;
+    }
+
+    .vendor-rank.top { color: var(--color-data-soft); }
+
+    .vendor-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+    .vendor-category { font-size: 10px; color: var(--color-text-secondary); }
+
+    .vendor-bar-wrap { width: 80px; }
+    .vendor-bar { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+    .vendor-bar-fill { height: 100%; border-radius: 2px; background: var(--color-paylens-sub); }
+    .vendor-bar-fill.accent { background: var(--color-data-soft); }
+
+    .vendor-amount {
+      font-family: var(--font-data);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-paylens-main);
+      text-align: right;
+      min-width: 72px;
+    }
+
+    /* ── Payment Mix ── */
+    .payment-mix { display: flex; gap: 8px; margin-top: 8px; }
+    .payment-item {
+      flex: 1;
+      padding: 12px;
+      background: var(--color-paylens-bg);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .payment-icon { font-size: 18px; margin-bottom: 4px; }
+    .payment-label { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 4px; }
+    .payment-value {
+      font-family: var(--font-data);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-paylens-main);
+    }
+    .payment-pct { font-size: 10px; color: var(--color-text-secondary); }
+
+    /* ── Section Header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-header .more {
+      font-size: 12px;
+      color: var(--color-action);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Insight Banner ── */
+    .insight-banner {
+      background: linear-gradient(135deg, var(--color-paylens-main) 0%, var(--color-paylens-sub) 100%);
+      border-radius: var(--border-radius-m);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .insight-icon { font-size: 24px; flex-shrink: 0; }
+
+    .insight-text { flex: 1; }
+    .insight-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .insight-desc { font-size: 11px; color: rgba(255,255,255,0.65); line-height: 1.5; }
+
+    .insight-cta {
+      padding: 7px 14px;
+      background: var(--color-action);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: var(--font-main);
+    }
+
+    /* ── Tag ── */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .tag-navy { background: rgba(19,64,116,0.1); color: var(--color-paylens-sub); }
+    .tag-accent { background: rgba(234,88,12,0.1); color: var(--color-data-soft); }
+    .tag-green  { background: rgba(234,88,12,0.1); color: var(--color-data-soft); }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-wordmark">pay<span>L</span>ens</div>
+    <div class="logo-sub">Trusted Expense Analysis</div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-section-label">메인</div>
+    <div class="nav-item active">
+      <span class="nav-icon">◈</span> 대시보드
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">＋</span> 지출 입력
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">≡</span> 지출 내역
+    </div>
+
+    <div class="nav-section-label" style="margin-top:8px;">통계</div>
+    <div class="nav-item">
+      <span class="nav-icon">◎</span> 카테고리별
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◐</span> 지출처별
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">◑</span> 상세항목별
+    </div>
+
+    <div class="nav-section-label" style="margin-top:8px;">설정</div>
+    <div class="nav-item">
+      <span class="nav-icon">◈</span> 예산 관리
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⊞</span> 마스터 데이터
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⊙</span> 계정 설정
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-area">
+      <div class="avatar">김</div>
+      <div class="user-info">
+        <div class="user-name">김지출</div>
+        <div class="user-email">suraholic@gmail.com</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-title">대시보드</div>
+    <div class="topbar-right">
+      <div class="period-selector">
+        <span>◀</span>
+        <span>2026년 6월</span>
+        <span>▶</span>
+        <span class="arrow">▾</span>
+      </div>
+      <button class="btn-add">＋ 지출 입력</button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Insight Banner -->
+    <div class="insight-banner">
+      <div class="insight-icon">💡</div>
+      <div class="insight-text">
+        <div class="insight-title">이번 달 식비가 지난 달 대비 23% 늘었어요</div>
+        <div class="insight-desc">스타벅스(8회), 배달의민족(6회) 지출이 집중되고 있습니다. 외식 예산을 확인해 보세요.</div>
+      </div>
+      <button class="insight-cta">자세히 보기</button>
+    </div>
+
+    <!-- Summary Cards Row -->
+    <div class="grid-3" style="margin-bottom:20px;">
+
+      <!-- 이번달 총지출 -->
+      <div class="summary-card accent">
+        <div class="sc-label">이번달 총지출</div>
+        <div class="sc-value"><span class="sc-unit">₩</span>842,300</div>
+        <div class="sc-meta">
+          <span class="badge-up">▲ 12.4%</span>
+          <span>지난달 대비</span>
+        </div>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar-header">
+            <span>예산 소진율</span>
+            <span>842,300 / 1,200,000</span>
+          </div>
+          <div class="budget-bar">
+            <div class="budget-bar-fill warn" style="width:70%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 남은 예산 -->
+      <div class="summary-card navy">
+        <div class="sc-label">남은 예산</div>
+        <div class="sc-value"><span class="sc-unit">₩</span>357,700</div>
+        <div class="sc-meta">
+          <span class="badge-down">▼ 11일 후 마감</span>
+        </div>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar-header">
+            <span>이번달 남은 일수</span>
+            <span>20일 / 30일</span>
+          </div>
+          <div class="budget-bar">
+            <div class="budget-bar-fill safe" style="width:67%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 이번달 거래 건수 -->
+      <div class="summary-card green">
+        <div class="sc-label">이번달 거래 건수</div>
+        <div class="sc-value">38<span style="font-size:16px;margin-left:4px;">건</span></div>
+        <div class="sc-meta">
+          <span class="badge-down">▼ 3건</span>
+          <span>지난달 대비</span>
+        </div>
+        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="tag tag-navy">카드 28건</span>
+          <span class="tag tag-accent">현금 6건</span>
+          <span class="tag tag-green">자동이체 4건</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Charts Row: Donut + Line -->
+    <div class="grid-2-1" style="margin-bottom:20px;">
+
+      <!-- Spending Trend (Line Chart) -->
+      <div class="card">
+        <div class="section-header">
+          <div class="card-title" style="margin-bottom:0;">월별 지출 추이</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:var(--color-text-secondary);">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ee6c4d;margin-right:4px;"></span>지출</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--color-paylens-sub);margin-right:4px;"></span>예산</span>
+          </div>
+        </div>
+
+        <!-- SVG Line Chart -->
+        <svg width="100%" viewBox="0 0 420 120" style="margin-top:12px;">
+          <!-- Grid lines -->
+          <line x1="0" y1="20" x2="420" y2="20" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="50" x2="420" y2="50" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="80" x2="420" y2="80" stroke="#f1f5f9" stroke-width="1"/>
+          <line x1="0" y1="110" x2="420" y2="110" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Y labels -->
+          <text x="0" y="23" font-size="8" fill="#94a3b8" font-family="JetBrains Mono">120</text>
+          <text x="0" y="53" font-size="8" fill="#94a3b8" font-family="JetBrains Mono">90</text>
+          <text x="0" y="83" font-size="8" fill="#94a3b8" font-family="JetBrains Mono">60</text>
+          <text x="0" y="113" font-size="8" fill="#94a3b8" font-family="JetBrains Mono">30</text>
+
+          <!-- Budget line (dashed) -->
+          <polyline
+            points="30,35 90,35 150,35 210,35 270,35 330,35 390,35"
+            fill="none"
+            stroke="#134074"
+            stroke-width="1.5"
+            stroke-dasharray="4,3"
+            opacity="0.5"
+          />
+
+          <!-- Expense area fill -->
+          <polygon
+            points="30,75 90,60 150,82 210,55 270,70 330,45 390,58 390,110 30,110"
+            fill="url(#areaGrad)"
+            opacity="0.3"
+          />
+
+          <!-- Expense line -->
+          <polyline
+            points="30,75 90,60 150,82 210,55 270,70 330,45 390,58"
+            fill="none"
+            stroke="#ee6c4d"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          <!-- Dots -->
+          <circle cx="30" cy="75" r="3.5" fill="#ee6c4d"/>
+          <circle cx="90" cy="60" r="3.5" fill="#ee6c4d"/>
+          <circle cx="150" cy="82" r="3.5" fill="#ee6c4d"/>
+          <circle cx="210" cy="55" r="3.5" fill="#ee6c4d"/>
+          <circle cx="270" cy="70" r="3.5" fill="#ee6c4d"/>
+          <circle cx="330" cy="45" r="3.5" fill="#ee6c4d"/>
+          <!-- Current month highlight -->
+          <circle cx="390" cy="58" r="5" fill="#fff" stroke="#ee6c4d" stroke-width="2.5"/>
+
+          <!-- Tooltip-like bubble for current -->
+          <rect x="360" y="40" width="56" height="16" rx="4" fill="#ee6c4d"/>
+          <text x="388" y="52" font-size="9" fill="#fff" font-family="JetBrains Mono" text-anchor="middle">84.2만</text>
+
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ee6c4d"/>
+              <stop offset="100%" stop-color="#ee6c4d" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div class="chart-x-labels" style="padding-left:22px;">
+          <span>1월</span><span>2월</span><span>3월</span><span>4월</span><span>5월</span><span>6월</span><span style="color:#ee6c4d;font-weight:600;">7월</span>
+        </div>
+      </div>
+
+      <!-- Donut Chart -->
+      <div class="card">
+        <div class="card-title">카테고리별 지출</div>
+        <div class="donut-section">
+          <div class="donut-chart-wrap">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <!-- Background circle -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#f1f5f9" stroke-width="18"/>
+              <!-- Segments (stroke-dasharray trick) -->
+              <!-- 식비 32% -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#ee6c4d" stroke-width="18"
+                stroke-dasharray="108.6 330.7" stroke-dashoffset="0"
+                transform="rotate(-90 70 70)"/>
+              <!-- 교통 18% -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#134074" stroke-width="18"
+                stroke-dasharray="61.0 378.3" stroke-dashoffset="-108.6"
+                transform="rotate(-90 70 70)"/>
+              <!-- 구독 15% -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#3a86ff" stroke-width="18"
+                stroke-dasharray="50.9 388.4" stroke-dashoffset="-169.6"
+                transform="rotate(-90 70 70)"/>
+              <!-- 여가 22% -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#06d6a0" stroke-width="18"
+                stroke-dasharray="74.6 364.7" stroke-dashoffset="-220.5"
+                transform="rotate(-90 70 70)"/>
+              <!-- 기타 13% -->
+              <circle cx="70" cy="70" r="54" fill="none" stroke="#8338ec" stroke-width="18"
+                stroke-dasharray="44.1 395.2" stroke-dashoffset="-295.1"
+                transform="rotate(-90 70 70)"/>
+            </svg>
+            <div class="donut-center">
+              <span class="donut-center-label">총지출</span>
+              <span class="donut-center-value">84.2만</span>
+            </div>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-left"><div class="legend-dot" style="background:#ee6c4d;"></div><span class="legend-name">식비</span></div>
+              <div style="display:flex;gap:8px;align-items:center;"><span class="legend-pct">32%</span><span class="legend-amt">26.9만</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left"><div class="legend-dot" style="background:#134074;"></div><span class="legend-name">교통</span></div>
+              <div style="display:flex;gap:8px;align-items:center;"><span class="legend-pct">18%</span><span class="legend-amt">15.2만</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left"><div class="legend-dot" style="background:#3a86ff;"></div><span class="legend-name">구독</span></div>
+              <div style="display:flex;gap:8px;align-items:center;"><span class="legend-pct">15%</span><span class="legend-amt">12.6만</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left"><div class="legend-dot" style="background:#06d6a0;"></div><span class="legend-name">여가</span></div>
+              <div style="display:flex;gap:8px;align-items:center;"><span class="legend-pct">22%</span><span class="legend-amt">18.5만</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="legend-left"><div class="legend-dot" style="background:#8338ec;"></div><span class="legend-name">기타</span></div>
+              <div style="display:flex;gap:8px;align-items:center;"><span class="legend-pct">13%</span><span class="legend-amt">11.0만</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Row: Transactions + Top Vendors + Payment Mix -->
+    <div class="grid-2" style="margin-bottom:0;">
+
+      <!-- Recent Transactions -->
+      <div class="card">
+        <div class="section-header">
+          <div class="card-title" style="margin-bottom:0;">최근 거래</div>
+          <span class="more">전체 보기 ›</span>
+        </div>
+        <div class="tx-list">
+
+          <div class="tx-item">
+            <div class="tx-icon" style="background:#fff3f0;">☕</div>
+            <div class="tx-info">
+              <div class="tx-name">스타벅스 강남점</div>
+              <div class="tx-meta">식비 · 10분 전 · 신한카드</div>
+            </div>
+            <div class="tx-amount minus">-6,500</div>
+          </div>
+
+          <div class="tx-item">
+            <div class="tx-icon" style="background:#f0f4ff;">🚇</div>
+            <div class="tx-info">
+              <div class="tx-name">서울 지하철</div>
+              <div class="tx-meta">교통 · 2시간 전 · 현금</div>
+            </div>
+            <div class="tx-amount minus">-1,400</div>
+          </div>
+
+          <div class="tx-item">
+            <div class="tx-icon" style="background:#f0fff8;">📦</div>
+            <div class="tx-info">
+              <div class="tx-name">쿠팡</div>
+              <div class="tx-meta">쇼핑 · 어제 · 삼성카드</div>
+            </div>
+            <div class="tx-amount minus">-32,900</div>
+          </div>
+
+          <div class="tx-item">
+            <div class="tx-icon" style="background:#f5f0ff;">🎵</div>
+            <div class="tx-info">
+              <div class="tx-name">Spotify</div>
+              <div class="tx-meta">구독 · 어제 · 자동이체</div>
+            </div>
+            <div class="tx-amount minus">-10,900</div>
+          </div>
+
+          <div class="tx-item">
+            <div class="tx-icon" style="background:#fff8f0;">🍔</div>
+            <div class="tx-info">
+              <div class="tx-name">배달의민족</div>
+              <div class="tx-meta">식비 · 2일 전 · 신한카드</div>
+            </div>
+            <div class="tx-amount minus">-24,500</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Right column: Top Vendors + Payment Mix -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Top Vendors -->
+        <div class="card">
+          <div class="section-header">
+            <div class="card-title" style="margin-bottom:0;">지출처 Top 5</div>
+            <span class="more">전체 보기 ›</span>
+          </div>
+          <div class="vendor-list">
+
+            <div class="vendor-item">
+              <div class="vendor-rank top">1</div>
+              <div style="flex:1;">
+                <div class="vendor-name">배달의민족</div>
+                <div class="vendor-category">식비</div>
+              </div>
+              <div class="vendor-bar-wrap">
+                <div class="vendor-bar"><div class="vendor-bar-fill accent" style="width:100%;"></div></div>
+              </div>
+              <div class="vendor-amount">89,200</div>
+            </div>
+
+            <div class="vendor-item">
+              <div class="vendor-rank top">2</div>
+              <div style="flex:1;">
+                <div class="vendor-name">스타벅스</div>
+                <div class="vendor-category">식비</div>
+              </div>
+              <div class="vendor-bar-wrap">
+                <div class="vendor-bar"><div class="vendor-bar-fill accent" style="width:76%;"></div></div>
+              </div>
+              <div class="vendor-amount">67,800</div>
+            </div>
+
+            <div class="vendor-item">
+              <div class="vendor-rank top">3</div>
+              <div style="flex:1;">
+                <div class="vendor-name">쿠팡</div>
+                <div class="vendor-category">쇼핑</div>
+              </div>
+              <div class="vendor-bar-wrap">
+                <div class="vendor-bar"><div class="vendor-bar-fill" style="width:58%;"></div></div>
+              </div>
+              <div class="vendor-amount">51,800</div>
+            </div>
+
+            <div class="vendor-item">
+              <div class="vendor-rank">4</div>
+              <div style="flex:1;">
+                <div class="vendor-name">카카오T</div>
+                <div class="vendor-category">교통</div>
+              </div>
+              <div class="vendor-bar-wrap">
+                <div class="vendor-bar"><div class="vendor-bar-fill" style="width:42%;"></div></div>
+              </div>
+              <div class="vendor-amount">37,200</div>
+            </div>
+
+            <div class="vendor-item">
+              <div class="vendor-rank">5</div>
+              <div style="flex:1;">
+                <div class="vendor-name">GS25</div>
+                <div class="vendor-category">식비</div>
+              </div>
+              <div class="vendor-bar-wrap">
+                <div class="vendor-bar"><div class="vendor-bar-fill" style="width:28%;"></div></div>
+              </div>
+              <div class="vendor-amount">24,900</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Payment Method Mix -->
+        <div class="card">
+          <div class="card-title">결제수단 구성</div>
+          <div class="payment-mix">
+            <div class="payment-item">
+              <div class="payment-icon">💳</div>
+              <div class="payment-label">신한카드</div>
+              <div class="payment-value">38.2만</div>
+              <div class="payment-pct">45%</div>
+            </div>
+            <div class="payment-item">
+              <div class="payment-icon">💳</div>
+              <div class="payment-label">삼성카드</div>
+              <div class="payment-value">21.8만</div>
+              <div class="payment-pct">26%</div>
+            </div>
+            <div class="payment-item">
+              <div class="payment-icon">💵</div>
+              <div class="payment-label">현금</div>
+              <div class="payment-value">12.4만</div>
+              <div class="payment-pct">15%</div>
+            </div>
+            <div class="payment-item">
+              <div class="payment-icon">🔄</div>
+              <div class="payment-label">자동이체</div>
+              <div class="payment-value">11.8만</div>
+              <div class="payment-pct">14%</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

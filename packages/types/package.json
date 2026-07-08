@@ -1,0 +1,19 @@
+{
+  "name": "@account-books/types",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@account-books/config": "workspace:*",
+    "eslint": "^9.39.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.62.0"
+  }
+}

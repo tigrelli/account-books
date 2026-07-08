@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>payLens — 인증 화면 디자인 프리뷰</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── 디자인 토큰 (DESIGN_GUIDE.md 기준) ── */
+    :root {
+      --color-paylens-main:    #0B2545;
+      --color-paylens-sub:     #134074;
+      --color-paylens-accent:  #EE6C4D;
+      --color-paylens-bg:      #F8FAFC;
+      --color-text-primary:    #0F172A;
+      --color-text-secondary:  #475569;
+      --color-text-muted:      #94A3B8;
+      --color-border:          #E2E8F0;
+      --color-white:           #FFFFFF;
+      --border-radius-m:       12px;
+      --border-radius-s:       8px;
+      --card-shadow:           0 2px 16px rgba(11, 37, 69, 0.10);
+      --font-data:             'JetBrains Mono', monospace;
+    }
+
+    /* ── 리셋 & 베이스 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, 'Apple SD Gothic Neo',
+                   'Noto Sans KR', sans-serif;
+      background-color: var(--color-paylens-bg);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── 프리뷰 레이아웃 (두 화면 나란히) ── */
+    .preview-bar {
+      background: var(--color-paylens-main);
+      color: #fff;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .preview-bar span { opacity: 0.6; }
+    .preview-bar strong { opacity: 1; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: calc(100vh - 36px);
+    }
+
+    .preview-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      background-color: var(--color-paylens-bg);
+      position: relative;
+    }
+    .preview-panel + .preview-panel {
+      border-left: 1px dashed var(--color-border);
+    }
+    .panel-label {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── 공통 인증 레이아웃 ── */
+    .auth-wrapper {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    /* ── 로고 영역 ── */
+    .logo-block { text-align: center; }
+    .logo-text {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--color-paylens-main);
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .logo-text .accent { color: var(--color-paylens-accent); }
+    .logo-tagline {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--color-text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── 카드 ── */
+    .auth-card {
+      width: 100%;
+      background: var(--color-white);
+      border-radius: var(--border-radius-m);
+      box-shadow: var(--card-shadow);
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-paylens-main);
+      margin-bottom: -4px;
+    }
+
+    /* ── 폼 필드 ── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+    .input-wrap { position: relative; }
+    .input-wrap input {
+      width: 100%;
+      height: 44px;
+      padding: 0 44px 0 14px;
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--border-radius-s);
+      font-size: 14px;
+      color: var(--color-text-primary);
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .input-wrap input::placeholder { color: var(--color-text-muted); }
+    .input-wrap input:focus { border-color: var(--color-paylens-sub); }
+    .input-wrap .eye-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      padding: 4px;
+      line-height: 1;
+      font-size: 16px;
+    }
+    .field-hint {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      margin-top: -2px;
+    }
+
+    /* ── 버튼 ── */
+    .btn-primary {
+      width: 100%;
+      height: 46px;
+      background: var(--color-paylens-accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--border-radius-s);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: -0.2px;
+      transition: opacity 0.15s;
+      font-family: inherit;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    .btn-social {
+      width: 100%;
+      height: 44px;
+      background: #fff;
+      color: var(--color-text-primary);
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--border-radius-s);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: inherit;
+      opacity: 0.45;  /* S-1-13 미구현 — 비활성 상태 */
+    }
+    .social-disabled-note {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      text-align: center;
+      margin-top: -12px;
+    }
+
+    /* ── 구분선 ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--color-text-muted);
+      font-size: 12px;
+      margin: -4px 0;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    /* ── 보조 링크 영역 ── */
+    .auth-links {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .auth-links p {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+    .auth-links a {
+      color: var(--color-paylens-sub);
+      font-weight: 600;
+      text-decoration: none;
+      margin-left: 4px;
+    }
+    .auth-links a:hover { text-decoration: underline; }
+    .link-muted {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* ── 구글 아이콘 ── */
+    .google-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 프리뷰 상단 바 -->
+  <div class="preview-bar">
+    <strong>payLens — 인증 화면 디자인 프리뷰</strong>
+    <span>|</span>
+    <span>DESIGN_GUIDE.md 기준 · 실제 구현 전 시안 확인용</span>
+  </div>
+
+  <div class="preview-grid">
+
+    <!-- ── 로그인 화면 ── -->
+    <div class="preview-panel">
+      <div class="panel-label">F-1-3-2 · 로그인</div>
+      <div class="auth-wrapper">
+
+        <div class="logo-block">
+          <div class="logo-text">pay<span class="accent">L</span>ens</div>
+          <div class="logo-tagline">Trusted Expense Analysis</div>
+        </div>
+
+        <div class="auth-card">
+          <div class="card-title">로그인</div>
+
+          <div class="field">
+            <label for="login-email">이메일</label>
+            <div class="input-wrap">
+              <input id="login-email" type="email" placeholder="example@email.com" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="login-pw">비밀번호</label>
+            <div class="input-wrap">
+              <input id="login-pw" type="password" placeholder="비밀번호 입력" value="password1" />
+              <button class="eye-btn" type="button">👁</button>
+            </div>
+          </div>
+
+          <button class="btn-primary" type="button">로그인</button>
+
+          <div class="divider">또는</div>
+
+          <button class="btn-social" type="button" disabled>
+            <svg class="google-icon" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Google로 계속하기
+          </button>
+          <p class="social-disabled-note">소셜 로그인은 추후 활성화 예정 (S-1-13)</p>
+        </div>
+
+        <div class="auth-links">
+          <p>계정이 없으신가요? <a href="#">회원가입</a></p>
+          <button class="link-muted" type="button">비밀번호를 잊으셨나요?</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 회원가입 화면 ── -->
+    <div class="preview-panel">
+      <div class="panel-label">F-1-3-1 · 회원가입</div>
+      <div class="auth-wrapper">
+
+        <div class="logo-block">
+          <div class="logo-text">pay<span class="accent">L</span>ens</div>
+          <div class="logo-tagline">Trusted Expense Analysis</div>
+        </div>
+
+        <div class="auth-card">
+          <div class="card-title">회원가입</div>
+
+          <div class="field">
+            <label for="signup-email">이메일</label>
+            <div class="input-wrap">
+              <input id="signup-email" type="email" placeholder="example@email.com" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="signup-pw">비밀번호</label>
+            <div class="input-wrap">
+              <input id="signup-pw" type="password" placeholder="비밀번호 입력" value="password1" />
+              <button class="eye-btn" type="button">👁</button>
+            </div>
+            <p class="field-hint">영문+숫자 포함, 8자 이상</p>
+          </div>
+
+          <div class="field">
+            <label for="signup-pw2">비밀번호 확인</label>
+            <div class="input-wrap">
+              <input id="signup-pw2" type="password" placeholder="비밀번호 재입력" value="password1" />
+              <button class="eye-btn" type="button">👁</button>
+            </div>
+          </div>
+
+          <button class="btn-primary" type="button">회원가입</button>
+        </div>
+
+        <div class="auth-links">
+          <p>이미 계정이 있으신가요? <a href="#">로그인</a></p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

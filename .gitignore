@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# Turbo
+.turbo/
+
+# Env files — .env.example 만 커밋, 실제 값이 들어간 파일은 절대 커밋 금지
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Supabase
+supabase/.temp/
+supabase/snippets/
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (팀 공유 설정은 .vscode/ 하위에 필요한 파일만 명시적으로 허용)
+.idea/
+*.swp
+*.swo
+
+# Google Sheets 서비스 계정 키 (절대 커밋 금지)
+scripts/.service-account.json
