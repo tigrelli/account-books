@@ -46,38 +46,31 @@
 
 ---
 
-## 5단계: Google Drive 폴더 설정
+## 5단계: Google 시트 수동 생성 + 공유
 
-1. [Google Drive](https://drive.google.com) 에서 새 폴더 생성: `payLens 테스트 문서`
-2. 폴더 우클릭 → **공유**
+> ⚠️ 서비스 계정은 개인(비-Workspace) GCP 프로젝트에서는 Drive 저장소 할당량이 없어 **파일을 직접 생성할 수 없습니다** — 스크립트가 새 시트를 자동으로 만들어주지 않으니, 아래처럼 사람이 먼저 시트를 만들고 서비스 계정에 공유해야 합니다.
+
+1. [sheets.new](https://sheets.new) 에서 새 Google 시트 생성 (이름 예: `payLens 테스트 시나리오 마스터`)
+2. 시트 우측 상단 **공유** 클릭
 3. 서비스 계정 이메일 입력 (JSON 파일 내 `client_email` 값, 예: `paylens-sheets-sync@프로젝트ID.iam.gserviceaccount.com`)
-4. 권한: **편집자** → **전송**
-5. 폴더 URL에서 폴더 ID 복사:
+4. 권한: **편집자** → **보내기**
+5. 시트 URL에서 시트 ID 복사:
    ```
-   https://drive.google.com/drive/folders/{폴더ID}
+   https://docs.google.com/spreadsheets/d/{시트ID}/edit
    ```
 
 ---
 
 ## 6단계: 환경변수 설정
 
-`account-books/apps/main/web/.env.local` 파일에 추가:
-
-```env
-# ── Google Sheets 연동 (스크립트 전용 — 브라우저 미사용) ──
-GOOGLE_SERVICE_ACCOUNT_KEY_FILE=../../scripts/.service-account.json
-GOOGLE_DRIVE_FOLDER_ID=여기에_폴더ID_입력
-```
-
-또는 터미널에서 직접:
+> ⚠️ `sync-test-sheet.mjs`는 dotenv를 로드하지 않습니다 — `apps/main/web/.env.local`에 값을 넣어도 `scripts` 폴더에서 스크립트를 단독 실행할 때는 읽히지 않습니다. 아래처럼 **실행할 때마다 터미널에서 직접 지정**하거나 쉘 프로필(`~/.bashrc` 등)에 `export`해두세요.
 
 ```bash
 export GOOGLE_SERVICE_ACCOUNT_KEY_FILE="/절대경로/account-books/scripts/.service-account.json"
-export GOOGLE_DRIVE_FOLDER_ID="폴더ID"
+export GOOGLE_SPREADSHEET_ID="5단계에서 복사한 시트 ID"
 ```
 
-> `GOOGLE_DRIVE_FOLDER_ID` 미설정 시: 서비스 계정의 루트 드라이브에 시트가 생성됩니다.  
-> 루트 드라이브에 생성된 시트는 공유 설정이 되어 있지 않으므로, **폴더 ID 설정을 권장합니다**.
+> `GOOGLE_SERVICE_ACCOUNT_KEY_FILE`은 생략 가능 — 미설정 시 스크립트 기본값(`scripts/.service-account.json`)을 사용하므로, 4단계에서 안내한 경로에 파일을 저장했다면 이 값을 굳이 지정하지 않아도 됩니다. `GOOGLE_SPREADSHEET_ID`는 필수이며 미설정 시 스크립트가 바로 종료됩니다.
 
 ---
 
@@ -88,7 +81,7 @@ export GOOGLE_DRIVE_FOLDER_ID="폴더ID"
 cd account-books/scripts
 npm install
 
-# 동기화 실행
+# 동기화 실행 (6단계 환경변수를 이미 export 했다면 바로 실행)
 cd account-books/scripts
 node sync-test-sheet.mjs
 ```
@@ -96,8 +89,8 @@ node sync-test-sheet.mjs
 성공 시 출력:
 
 ```
-데이터 파일 1개 발견: T-1-3-1.mjs
-기존 시트 사용: https://docs.google.com/spreadsheets/d/...
+데이터 파일 9개 발견: T-1-3-1.mjs, T-1-4-1.mjs, ...
+시트 사용: https://docs.google.com/spreadsheets/d/...
 ✓ 표지 업데이트 완료
 ✓ T-1-3-1 (단위 13건 / E2E 6건) 동기화 완료
 
@@ -123,9 +116,10 @@ node sync-test-sheet.mjs
 
 ## 문제 해결
 
-| 오류                                  | 원인                            | 해결                                            |
-| ------------------------------------- | ------------------------------- | ----------------------------------------------- |
-| `ENOENT: .service-account.json`       | 키 파일 경로 불일치             | `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` 환경변수 확인 |
-| `invalid_grant`                       | 키 파일 내용 오류 또는 만료     | GCP 콘솔에서 새 키 재발급                       |
-| `The caller does not have permission` | 서비스 계정이 폴더에 공유 안 됨 | 5단계 폴더 공유 재확인                          |
-| `API has not been enabled`            | Sheets/Drive API 미활성화       | 2단계 API 활성화 재확인                         |
+| 오류                                                   | 원인                                   | 해결                                                          |
+| ------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------- |
+| `ENOENT: .service-account.json`                        | 키 파일 경로 불일치                    | `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` 환경변수 확인               |
+| `GOOGLE_SPREADSHEET_ID 환경변수가 설정되지 않았습니다` | 시트를 아직 만들지 않았거나 env 미설정 | 5단계로 시트 생성 후 6단계대로 `GOOGLE_SPREADSHEET_ID` export |
+| `invalid_grant`                                        | 키 파일 내용 오류 또는 만료            | GCP 콘솔에서 새 키 재발급                                     |
+| `The caller does not have permission`                  | 서비스 계정이 시트에 공유 안 됨        | 5단계 시트 공유(서비스 계정 이메일, 편집자) 재확인            |
+| `API has not been enabled`                             | Sheets/Drive API 미활성화              | 2단계 API 활성화 재확인                                       |
