@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUpAction, type SignUpState } from "./actions";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const initialState: SignUpState = { status: "idle" };
 
@@ -168,6 +169,14 @@ export default function SignUpPage() {
           {isPending ? "처리 중…" : "회원가입"}
         </button>
       </form>
+
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-[#e2e8f0]" />
+        <span className="text-xs text-[var(--color-text-secondary)]">또는</span>
+        <div className="h-px flex-1 bg-[#e2e8f0]" />
+      </div>
+
+      <GoogleSignInButton label="Google로 계속하기" />
 
       <p className="mt-6 text-center text-sm text-[var(--color-text-secondary)]">
         이미 계정이 있으신가요?{" "}

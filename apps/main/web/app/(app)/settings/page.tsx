@@ -12,7 +12,10 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const displayName = (user.user_metadata?.display_name as string | undefined) ?? "";
+  // 구글 로그인(S-1-13)은 display_name이 아니라 full_name/name 클레임으로 이름을 채워준다 —
+  // 이메일 가입과 필드명이 달라 폴백 없인 구글로 가입한 사용자의 이름란이 빈 채로 보인다.
+  const metadata = user.user_metadata as Record<string, string | undefined> | undefined;
+  const displayName = metadata?.display_name ?? metadata?.full_name ?? metadata?.name ?? "";
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">

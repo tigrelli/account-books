@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { loginAction, type LoginState } from "./actions";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const initialState: LoginState = { status: "idle" };
 
@@ -82,6 +83,14 @@ export default function LoginPage() {
           {isPending ? "로그인 중…" : "로그인"}
         </button>
       </form>
+
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-[#e2e8f0]" />
+        <span className="text-xs text-[var(--color-text-secondary)]">또는</span>
+        <div className="h-px flex-1 bg-[#e2e8f0]" />
+      </div>
+
+      <GoogleSignInButton label="Google로 로그인" />
 
       <p className="mt-6 text-center text-sm text-[var(--color-text-secondary)]">
         계정이 없으신가요?{" "}

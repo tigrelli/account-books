@@ -57,6 +57,29 @@ test.describe("로그인", () => {
   });
 });
 
+test.describe("S-1-13 구글 로그인(OAuth)", () => {
+  // 실제 구글 동의화면까지 완주하는 건 자동화하지 않는다(실 구글 계정/자격증명이 필요해 CI에서
+  // 반복 실행하기 부적절 — F-3-1-5의 운영자 CRUD를 자동화 안 한 것과 같은 이유). 대신 버튼이
+  // 로그인/회원가입 화면에 있고, 클릭 시 올바른 파라미터로 Supabase의 OAuth authorize 엔드포인트까지
+  // 정확히 넘어가는지(=우리 쪽 배선이 맞는지)만 검증한다.
+  test("로그인 화면의 구글 버튼이 Supabase OAuth authorize로 이동시킨다", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Google로 로그인" }).click();
+    await page.waitForURL(/\/auth\/v1\/authorize\?/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get("provider")).toBe("google");
+    expect(url.searchParams.get("redirect_to")).toContain("/auth/callback");
+  });
+
+  test("회원가입 화면에도 구글 버튼이 있고 동일하게 동작한다", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByRole("button", { name: "Google로 계속하기" }).click();
+    await page.waitForURL(/\/auth\/v1\/authorize\?/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get("provider")).toBe("google");
+  });
+});
+
 test.describe("가입 → 로그인 → 로그아웃 전체 흐름", () => {
   test("회원가입 후 로그인하고 로그아웃까지 완료된다", async ({ page }) => {
     const email = testEmail();
