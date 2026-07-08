@@ -48,6 +48,7 @@ export default async function SettingsPage() {
             </div>
             <Link
               href="/settings/payment-methods"
+              prefetch={false}
               className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
             >
               관리하기 →
@@ -66,6 +67,7 @@ export default async function SettingsPage() {
             </div>
             <Link
               href="/settings/categories"
+              prefetch={false}
               className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
             >
               관리하기 →
@@ -84,6 +86,7 @@ export default async function SettingsPage() {
             </div>
             <Link
               href="/settings/vendors"
+              prefetch={false}
               className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
             >
               관리하기 →
@@ -102,6 +105,7 @@ export default async function SettingsPage() {
             </div>
             <Link
               href="/settings/items"
+              prefetch={false}
               className="text-sm font-semibold text-[var(--paylens-action)] hover:underline"
             >
               관리하기 →

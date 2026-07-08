@@ -52,6 +52,7 @@ export function EditExpenseFormClient({
         <>
           <Link
             href={listHref}
+            prefetch={false}
             className="flex h-10 flex-1 items-center justify-center rounded-lg border border-[#e2e8f0] text-sm font-semibold text-[var(--color-text-primary)]"
           >
             목록

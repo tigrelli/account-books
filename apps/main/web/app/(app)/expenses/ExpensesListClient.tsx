@@ -63,6 +63,7 @@ function ExpenseRow({ tx, editHref }: { tx: ExpenseListRow; editHref: string }) 
   return (
     <Link
       href={editHref}
+      prefetch={false}
       className="block rounded-lg border border-[#e2e8f0] p-3 hover:border-[var(--paylens-action)]"
     >
       <div className="flex items-center justify-between">
@@ -100,6 +101,7 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
       {hasFilter ? (
         <Link
           href="/expenses"
+          prefetch={false}
           className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
         >
           필터 초기화
@@ -107,6 +109,7 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
       ) : (
         <Link
           href="/expenses/create"
+          prefetch={false}
           className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
         >
           지출 입력하러 가기
