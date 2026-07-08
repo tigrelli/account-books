@@ -33,6 +33,11 @@ function SidebarNav({
           <Link
             href={item.href}
             onClick={onNavigate}
+            // 사이드바는 모든 화면에 항상 떠있어서 기본 prefetch(뷰포트에 보이면 자동 백그라운드
+            // 요청)를 켜두면, 페이지 하나 열 때마다 사이드바 링크 9개가 전부 미리 요청된다 —
+            // 대상 라우트가 대부분 force-dynamic이라 캐싱 이득 없이 매번 실제 Supabase 쿼리만
+            // 낭비(운영 환경 성능 점검 중 네트워크 로그로 확인, 2026-07-08). 꺼서 클릭 시에만 요청.
+            prefetch={false}
             className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isActive(pathname, item.href)
                 ? "bg-[var(--color-sidebar-accent)] text-[var(--color-sidebar-accent-foreground)]"
@@ -48,6 +53,7 @@ function SidebarNav({
                   key={child.href}
                   href={child.href}
                   onClick={onNavigate}
+                  prefetch={false}
                   className={`block rounded-lg px-3 py-1.5 text-sm transition-colors ${
                     isActive(pathname, child.href)
                       ? "font-medium text-[var(--paylens-action)]"
@@ -123,7 +129,7 @@ export function AppShell({
             >
               ☰
             </button>
-            <Link href="/" className="text-lg font-bold text-white">
+            <Link href="/" prefetch={false} className="text-lg font-bold text-white">
               pay<span className="text-[var(--paylens-action)]">L</span>ens
             </Link>
           </div>
