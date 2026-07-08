@@ -43,3 +43,70 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @account-books/web exec playwright install --with-deps chromium
+
+      - name: Start local Supabase
+        run: pnpm supabase start
+
+      - name: Write local env file
+        # 로컬 전용 데모 키(anon/service_role) — 어떤 supabase 프로젝트에서든 `supabase start`가
+        # 동일하게 발급하는 고정값이라 비밀값이 아님(README/`supabase status` 출력과 동일).
+        # Upstash Redis만 캐시 무효화 테스트(T-3-2)가 실제로 필요로 해 시크릿으로 주입.
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          cat > apps/main/web/.env.development.local <<EOF
+          NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+          SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+          UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL
+          UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN
+          ADMIN_EMAILS=ci-admin@example.com
+          EOF
+
+      - name: Run E2E tests
+        # turbo의 test:e2e가 내부적으로 build 태스크에 의존하는데, `next build`는 프로덕션 모드라
+        # .env.development.local을 읽지 않는다(next dev만 읽음) — 실제 e2e 실행은 Playwright가 항상
+        # `pnpm dev`로 띄우니 상관없지만, 그 전에 도는 build 단계가 값 없이 실패하지 않도록 여기서도
+        # 실제 프로세스 환경변수로 넘겨준다.
+        run: pnpm test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/main/web/playwright-report/
+          retention-days: 7
+
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm supabase stop
