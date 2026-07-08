@@ -82,6 +82,7 @@ export default async function ExpensesListPage({
           <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm">
             <Link
               href="/expenses/calendar"
+              prefetch={false}
               className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--paylens-bg)]"
             >
               캘린더

@@ -99,6 +99,7 @@ export default async function BudgetsPage({
         <div className="flex items-center justify-between">
           <Link
             href={`/budgets?period=${shiftPeriod(period, -1)}`}
+            prefetch={false}
             className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
           >
             ← 이전 달
@@ -106,6 +107,7 @@ export default async function BudgetsPage({
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{period}</span>
           <Link
             href={`/budgets?period=${shiftPeriod(period, 1)}`}
+            prefetch={false}
             className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
           >
             다음 달 →

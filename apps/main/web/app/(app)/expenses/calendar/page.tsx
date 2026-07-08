@@ -107,6 +107,7 @@ export default async function ExpenseCalendarPage({
             </span>
             <Link
               href="/expenses"
+              prefetch={false}
               className="rounded-md px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--paylens-bg)]"
             >
               목록
@@ -117,6 +118,7 @@ export default async function ExpenseCalendarPage({
         <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
           <Link
             href={`/expenses/calendar?period=${shiftPeriod(period, -1)}`}
+            prefetch={false}
             className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
           >
             ← 이전 달
@@ -124,6 +126,7 @@ export default async function ExpenseCalendarPage({
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{period}</span>
           <Link
             href={`/expenses/calendar?period=${shiftPeriod(period, 1)}`}
+            prefetch={false}
             className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
           >
             다음 달 →

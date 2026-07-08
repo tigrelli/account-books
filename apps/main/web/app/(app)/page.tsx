@@ -105,6 +105,7 @@ export default async function HomePage({
             <div className="mt-1 flex items-center gap-3">
               <Link
                 href={`/?period=${shiftPeriod(period, -1)}`}
+                prefetch={false}
                 className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
               >
                 ← 이전 달
@@ -114,6 +115,7 @@ export default async function HomePage({
               </p>
               <Link
                 href={`/?period=${shiftPeriod(period, 1)}`}
+                prefetch={false}
                 className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
               >
                 다음 달 →
@@ -123,12 +125,14 @@ export default async function HomePage({
           <div className="flex gap-2">
             <Link
               href={`/expenses/calendar?period=${period}`}
+              prefetch={false}
               className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[var(--paylens-action)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0f766e] active:bg-[#0d6b63]"
             >
               📅 캘린더 바로가기
             </Link>
             <Link
               href="/expenses/create"
+              prefetch={false}
               className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[var(--paylens-action)] px-4 text-sm font-semibold text-[var(--paylens-action)] transition-colors hover:bg-[var(--paylens-action)]/5"
             >
               + 지출 입력
@@ -169,6 +173,7 @@ export default async function HomePage({
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                 <Link
                   href="/budgets"
+                  prefetch={false}
                   className="font-medium text-[var(--paylens-action)] hover:underline"
                 >
                   예산을 설정

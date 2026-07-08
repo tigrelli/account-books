@@ -167,6 +167,7 @@ export function ExpenseFilters({
         {hasFilter && (
           <Link
             href="/expenses"
+            prefetch={false}
             className="text-sm font-medium text-[var(--color-text-secondary)] hover:underline"
           >
             초기화

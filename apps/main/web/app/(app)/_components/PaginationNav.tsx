@@ -14,6 +14,7 @@ export function PaginationNav({
       {page > 1 ? (
         <Link
           href={buildHref(page - 1)}
+          prefetch={false}
           className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
         >
           ← 이전
@@ -27,6 +28,7 @@ export function PaginationNav({
       {page < totalPages ? (
         <Link
           href={buildHref(page + 1)}
+          prefetch={false}
           className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
         >
           다음 →
