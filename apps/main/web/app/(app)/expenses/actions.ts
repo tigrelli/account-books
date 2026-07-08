@@ -179,8 +179,8 @@ export async function addExpenseAction(
 
     if (!parsed.success) {
       return {
-        status: "error",
-        message: parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요",
+        status: "validation_error",
+        errors: parsed.error.flatten((i) => i.message).fieldErrors,
       };
     }
 
@@ -373,8 +373,8 @@ export async function updateExpenseAction(
 
     if (!parsed.success) {
       return {
-        status: "error",
-        message: parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요",
+        status: "validation_error",
+        errors: parsed.error.flatten((i) => i.message).fieldErrors,
       };
     }
 

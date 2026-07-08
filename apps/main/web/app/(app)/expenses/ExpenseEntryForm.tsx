@@ -625,6 +625,7 @@ export function ExpenseEntryForm({
         <div>
           <FieldLabel>상세항목</FieldLabel>
           <DetailItemRows rows={detailRows} items={items} units={units} onChange={setDetailRows} />
+          <FieldError messages={errors.details} />
           <button
             type="button"
             onClick={addDetailRow}

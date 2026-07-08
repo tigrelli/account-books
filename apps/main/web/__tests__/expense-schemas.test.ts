@@ -33,8 +33,31 @@ describe("expenseSchema (직접입력 모드)", () => {
     }
   });
 
+  // <select>의 placeholder 옵션이 disabled라 아무 것도 고르지 않으면 FormData.get()이 ""가 아닌
+  // null을 반환한다(선택 상태 자체가 없음) — 이 케이스에서도 Zod 기본 영문 메시지가 아니라
+  // 커스텀 한글 메시지가 나가야 한다(실제 버그: 이 케이스가 비어있는 문자열 케이스와 달리 커버되지 않았었음).
+  it("지출분류가 null(select 미선택)이면 한글 메시지로 실패한다", () => {
+    const result = expenseSchema.safeParse({ ...validBase, paymentMethodId: null, amount: "1000" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten((i) => i.message).fieldErrors.paymentMethodId).toContain(
+        "지출분류를 선택해 주세요"
+      );
+    }
+  });
+
   it("지출항목이 비어있으면 실패한다", () => {
     const result = expenseSchema.safeParse({ ...validBase, categoryId: "", amount: "1000" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten((i) => i.message).fieldErrors.categoryId).toContain(
+        "지출항목을 선택해 주세요"
+      );
+    }
+  });
+
+  it("지출항목이 null(select 미선택)이면 한글 메시지로 실패한다", () => {
+    const result = expenseSchema.safeParse({ ...validBase, categoryId: null, amount: "1000" });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten((i) => i.message).fieldErrors.categoryId).toContain(
