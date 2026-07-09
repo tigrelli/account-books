@@ -16,9 +16,15 @@ export interface ItemVendorBreakdownEntry {
 //
 // 병합(F-1-6-3) 처리: 클릭한 itemId로 병합돼 들어온(merged_into_item_id가 그 id를 가리키는)
 // 다른 품목들의 transaction_detail도 함께 모아야 "대표 품목 기준 전체 내역"이 된다.
+//
+// monthsBack(F-3-1-3 후속, 2026-07-09): Top10 자체가 당월/최근 3개월/최근 6개월 합산 보기를
+// 지원하게 되면서, 드릴다운도 Top10과 같은 기간 범위로 조회해야 막대 합계와 펼친 내역의 합이
+// 일치한다 — getMonthlyTrend(lib/dashboard-queries.ts)와 동일하게 period를 "끝(최신) 달"로 보고
+// 그 이전 (monthsBack-1)개월까지 범위를 넓힌다.
 export async function getItemVendorBreakdown(
   itemId: string,
-  period: string
+  period: string,
+  monthsBack: number = 1
 ): Promise<ItemVendorBreakdownEntry[]> {
   const supabase = await createSupabaseServerClient();
   const {
@@ -37,7 +43,13 @@ export async function getItemVendorBreakdown(
     .map((item) => item.id);
   if (!relevantItemIds.includes(itemId)) relevantItemIds.push(itemId);
 
-  const { start, end } = periodToRange(period);
+  const latestRange = periodToRange(period);
+  const start = new Date(
+    latestRange.start.getFullYear(),
+    latestRange.start.getMonth() - (monthsBack - 1),
+    1
+  );
+  const end = latestRange.end;
 
   const { data } = await supabase
     .from("transaction_detail")

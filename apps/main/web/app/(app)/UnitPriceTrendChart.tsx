@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Area,
@@ -19,6 +20,10 @@ function formatMonthLabel(period: string): string {
 
 function optionKey(option: Pick<UnitPriceOption, "itemId" | "unitId">): string {
   return `${option.itemId}:${option.unitId}`;
+}
+
+function optionLabel(option: Pick<UnitPriceOption, "itemName" | "unitName">): string {
+  return `${option.itemName} (${option.unitName})`;
 }
 
 function CompactTooltip({
@@ -47,9 +52,14 @@ function CompactTooltip({
   );
 }
 
-// F-3-1-4: 품목×단위 평균 단가 추이 — 구조화된 수량(quantity_value+unit_id)이 있는 조합만 select로
-// 고를 수 있다(item_unit_stats, S-3-3이 애초에 그 조건만 집계). 선택은 URL 쿼리(?unitItem=)로
-// 관리해 새로고침/공유해도 유지되도록 함(예산/캘린더의 ?period= 패턴과 동일한 방식).
+// F-3-1-4: 품목×단위 평균 단가 추이 — 구조화된 수량(quantity_value+unit_id)이 있는 조합만 고를 수
+// 있다(item_unit_stats, S-3-3이 애초에 그 조건만 집계). 선택은 URL 쿼리(?unitItem=)로 관리해
+// 새로고침/공유해도 유지되도록 함(예산/캘린더의 ?period= 패턴과 동일한 방식).
+//
+// 2026-07-09 PM 요청: 조합이 늘어날수록 <select>가 스크롤만 계속 길어지는 문제 — ExpenseEntryForm의
+// VendorCombobox/ItemCombobox와 동일한 입력창+필터 드롭다운 패턴으로 교체(검색 대상은 품목명만,
+// PM 확인). 옆의 "검색" 버튼은 드롭다운에서 직접 고르지 않아도, 지금 필터된 목록의 1순위(원래도
+// 구매량 많은 순 정렬이라 자연스러운 기본값)를 바로 선택한다.
 export function UnitPriceTrendChart({
   period,
   options,
@@ -64,6 +74,24 @@ export function UnitPriceTrendChart({
   unitName: string;
 }) {
   const router = useRouter();
+  const selectedOption = options.find((option) => optionKey(option) === selectedKey);
+
+  const [query, setQuery] = useState(selectedOption ? optionLabel(selectedOption) : "");
+  // 선택된 조합의 라벨("양파 (kg)")을 그대로 입력창 기본값으로 보여주다 보니, 그 값 자체로
+  // itemName만 필터링하면 "(kg)" 부분 때문에 자기 자신도 안 걸리는 문제가 생긴다 — 사용자가
+  // 실제로 타이핑을 시작했는지(isDirty)를 따로 추적해, 타이핑 전에는 전체 목록을 보여준다.
+  const [isDirty, setIsDirty] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // 다른 조합을 선택해 URL 이동이 실제로 반영되면(selectedKey 갱신) 입력창 표시도 재동기화 —
+  // useEffect 대신 렌더 중 이전 값과 비교하는 패턴(CLAUDE.md 컨벤션, ExpenseEntryForm의 prevState와
+  // 동일한 이유: 캐스케이드 렌더링 경고 회피).
+  const [prevSelectedKey, setPrevSelectedKey] = useState(selectedKey);
+  if (selectedKey !== prevSelectedKey) {
+    setPrevSelectedKey(selectedKey);
+    setQuery(selectedOption ? optionLabel(selectedOption) : "");
+    setIsDirty(false);
+  }
 
   if (options.length === 0) {
     return (
@@ -73,24 +101,78 @@ export function UnitPriceTrendChart({
     );
   }
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const matches =
+    !isDirty || trimmedQuery.length === 0
+      ? options
+      : options.filter((option) => option.itemName.toLowerCase().includes(trimmedQuery));
+
+  function selectOption(option: UnitPriceOption) {
+    setIsOpen(false);
+    setQuery(optionLabel(option));
+    setIsDirty(false);
+    const params = new URLSearchParams({ period, unitItem: optionKey(option) });
+    router.push(`/?${params.toString()}`, { scroll: false });
+  }
+
+  function handleSearch() {
+    const top = matches[0];
+    if (top) selectOption(top);
+  }
+
   const hasAnyData = trend.some((point) => point.avgUnitPrice !== null);
 
   return (
     <div>
-      <select
-        value={selectedKey}
-        onChange={(e) => {
-          const params = new URLSearchParams({ period, unitItem: e.target.value });
-          router.push(`/?${params.toString()}`, { scroll: false });
-        }}
-        className="mb-3 h-9 rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)]"
-      >
-        {options.map((option) => (
-          <option key={optionKey(option)} value={optionKey(option)}>
-            {option.itemName} ({option.unitName})
-          </option>
-        ))}
-      </select>
+      <div className="relative mb-3 flex max-w-sm gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setIsDirty(true);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            onBlur={() => setIsOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSearch();
+              }
+            }}
+            placeholder="품목명으로 검색 (예: 양파)"
+            className="h-9 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)]"
+          />
+          {isOpen && matches.length > 0 && (
+            <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
+              {matches.map((option) => (
+                <li key={optionKey(option)}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectOption(option);
+                    }}
+                    className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
+                  >
+                    {optionLabel(option)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleSearch}
+          disabled={matches.length === 0}
+          className="h-9 shrink-0 rounded-lg border border-[var(--paylens-action)] px-3 text-sm font-medium text-[var(--paylens-action)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          검색
+        </button>
+      </div>
 
       {hasAnyData ? (
         <ResponsiveContainer width="100%" height={220}>

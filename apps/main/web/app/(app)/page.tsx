@@ -22,6 +22,11 @@ import { ItemTop10Chart } from "./ItemTop10Chart";
 import { UnitPriceTrendChart } from "./UnitPriceTrendChart";
 
 const TREND_MONTHS = 6;
+// F-3-1-3 후속(2026-07-09, PM 요청): 상세항목 Top10만 "당월/최근 3개월/최근 6개월"을 고를 수 있게 —
+// 다른 위젯(요약카드/월별추이/카테고리별 등)이 전부 공유하는 페이지 전역 period와는 별개로, 이
+// 위젯 하나만 자기 몫의 쿼리 파라미터(itemRange)를 갖는다.
+const ITEM_RANGE_OPTIONS = [1, 3, 6] as const;
+type ItemRange = (typeof ITEM_RANGE_OPTIONS)[number];
 
 // 예산/캘린더 화면과 동일하게 뮤테이션(지출 등록 등) 직후에도 최신 데이터를 봐야 하므로 캐시하지 않음.
 export const dynamic = "force-dynamic";
@@ -42,7 +47,7 @@ function shiftPeriod(period: string, delta: number): string {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; unitItem?: string }>;
+  searchParams: Promise<{ period?: string; unitItem?: string; itemRange?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -51,8 +56,16 @@ export default async function HomePage({
 
   if (!user) redirect("/login");
 
-  const { period: periodParam, unitItem: unitItemParam } = await searchParams;
+  const {
+    period: periodParam,
+    unitItem: unitItemParam,
+    itemRange: itemRangeParam,
+  } = await searchParams;
   const period = periodParam && periodRegex.test(periodParam) ? periodParam : currentPeriod();
+  const parsedItemRange = Number(itemRangeParam);
+  const itemRange: ItemRange = (ITEM_RANGE_OPTIONS as readonly number[]).includes(parsedItemRange)
+    ? (parsedItemRange as ItemRange)
+    : 1;
   const [
     summary,
     trend,
@@ -67,7 +80,7 @@ export default async function HomePage({
     getCategoryBreakdown(supabase, period),
     getPaymentMethodBreakdown(supabase, period),
     getVendorTopN(supabase, period),
-    getItemTop10Display(supabase, user.id, period),
+    getItemTop10Display(supabase, user.id, period, itemRange),
     getUnitPriceOptions(supabase, period, TREND_MONTHS),
   ]);
   const isIncrease = summary.changeRate !== null && summary.changeRate > 0;
@@ -218,7 +231,7 @@ export default async function HomePage({
           <p className="mb-2 text-sm text-[var(--color-text-secondary)]">
             상세항목 Top 10 <span className="text-xs font-normal">(클릭하면 지출처별 내역)</span>
           </p>
-          <ItemTop10Chart data={itemTop10} period={period} />
+          <ItemTop10Chart data={itemTop10} period={period} monthsBack={itemRange} />
         </section>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
