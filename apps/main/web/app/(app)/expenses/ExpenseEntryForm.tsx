@@ -98,12 +98,16 @@ function FieldError({ messages }: { messages?: string[] | undefined }) {
 // 화면엔 천단위 콤마(예: 15,000)로 보여주되, 실제 제출값(hidden input)은 숫자만 담긴 문자열로 유지 —
 // <input type="number">는 콤마 같은 비숫자 문자를 표시할 수 없어 type="text"로 바꾸고 직접 포맷/파싱.
 function AmountInput({
+  id,
   name,
   value,
   onChange,
   placeholder,
   className,
 }: {
+  // 상세항목 행처럼 같은 name(detailAmount)이 여러 개 반복되는 경우 id 중복을 피하려면
+  // 지정하지 않는다 — 단일 필드(직접입력 금액)에서만 포커스 이동 타겟으로 넘겨준다.
+  id?: string;
   name: string;
   value: string;
   onChange: (digitsOnly: string) => void;
@@ -115,6 +119,7 @@ function AmountInput({
   return (
     <>
       <input
+        id={id}
         type="text"
         inputMode="numeric"
         placeholder={placeholder}
@@ -545,8 +550,39 @@ export function ExpenseEntryForm({
 
   const errors = state.status === "validation_error" ? state.errors : {};
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // 상세항목을 여러 개 입력해 폼이 길어진 상태에서 검증에 실패하면, 화면 위쪽 필드(지출분류/지출항목 등)의
+  // 에러 문구가 스크롤 밖에 있어 눈에 안 띌 수 있음 — 폼 순서상 가장 위에 있는 에러 필드로 자동 포커스
+  // 이동시켜(브라우저 기본 동작으로 스크롤도 함께 됨) 사용자가 직접 스크롤해서 찾지 않아도 되게 한다.
+  useEffect(() => {
+    if (state.status !== "validation_error" || !formRef.current) return;
+
+    const fieldOrder = [
+      "occurredAt",
+      "paymentMethodId",
+      "categoryId",
+      "vendorName",
+      "amount",
+      "details",
+      "memo",
+    ] as const;
+    const firstErrorField = fieldOrder.find((field) => state.errors[field]?.length);
+    if (!firstErrorField) return;
+
+    // amount는 실제 제출값을 담는 input이 name="amount" hidden이라 포커스가 안 되므로 화면에 보이는
+    // 짝(id="amount-visible")을 대신 타겟팅, details는 필드별이 아니라 배열 전체 에러라 상세항목
+    // 섹션의 첫 번째 행 품목명 입력으로 이동.
+    const selector =
+      firstErrorField === "amount"
+        ? "#amount-visible"
+        : firstErrorField === "details"
+          ? '[name="detailItemText"]'
+          : `[name="${firstErrorField}"]`;
+    formRef.current.querySelector<HTMLElement>(selector)?.focus();
+  }, [state]);
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       {isEditMode && <input type="hidden" name="id" value={transactionId} />}
       <input type="hidden" name="hasDetail" value={detailRows.length > 0 ? "true" : "false"} />
       {state.status === "error" && (
@@ -613,6 +649,7 @@ export function ExpenseEntryForm({
             </button>
           </div>
           <AmountInput
+            id="amount-visible"
             name="amount"
             value={values.amount}
             onChange={(v) => setValues({ ...values, amount: v })}
