@@ -85,11 +85,12 @@ export default async function HomePage({
   ]);
   const isIncrease = summary.changeRate !== null && summary.changeRate > 0;
 
-  // F-3-1-4: ?unitItem=itemId:unitId가 선택 목록에 없으면(잘못된 값/최초 진입) 가장 많이 기록된
-  // 조합을 기본값으로 — select 자체가 항상 유효한 선택지를 보여줘야 하므로 여기서 폴백을 정한다.
-  const selectedUnitOption =
-    unitPriceOptions.find((option) => `${option.itemId}:${option.unitId}` === unitItemParam) ??
-    unitPriceOptions[0];
+  // F-3-1-4 재설계(2026-07-09 PM 요청): 처음 진입 시 아무 조합도 기본 선택하지 않음 — 검색해서
+  // 실제로 고른 조합(?unitItem=)이 있을 때만 데이터를 가져온다. 값이 없거나 유효하지 않으면
+  // 미선택 상태(차트 대신 안내 문구)를 그대로 유지.
+  const selectedUnitOption = unitPriceOptions.find(
+    (option) => `${option.itemId}:${option.unitId}` === unitItemParam
+  );
   const unitPriceTrend = selectedUnitOption
     ? await getUnitPriceTrend(
         supabase,

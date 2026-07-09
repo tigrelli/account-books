@@ -105,7 +105,13 @@ test.describe("F-3-1-4 — 품목×단위 평균단가 추이 정확도", () => 
 
     await page.goto("/");
     const unitSection = page.locator("section", { hasText: "단가 분석" });
-    await expect(unitSection.locator("select")).toContainText("당근 (kg)");
+    // 2026-07-09 재설계: 처음 진입 시 자동 선택 없음(검색 전 데이터 미표시) — 검색창에 품목명을
+    // 입력하고 "검색" 버튼을 눌러야 해당 조합의 추이가 로드된다.
+    await unitSection.locator('input[placeholder="항목을 검색하세요"]').fill("당근");
+    await unitSection.getByRole("button", { name: "검색" }).click();
+    await expect(unitSection.locator('input[placeholder="항목을 검색하세요"]')).toHaveValue(
+      "당근 (kg)"
+    );
 
     const dot = unitSection.locator(".recharts-dot").last();
     await dot.hover();
