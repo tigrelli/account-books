@@ -58,12 +58,18 @@ function CompactTooltip({
 //
 // 2026-07-09 PM 요청: 조합이 늘어날수록 <select>가 스크롤만 계속 길어지는 문제 — ExpenseEntryForm의
 // VendorCombobox/ItemCombobox와 동일한 입력창+필터 드롭다운 패턴으로 교체(검색 대상은 품목명만,
-// PM 확인). 옆의 "검색" 버튼은 드롭다운에서 직접 고르지 않아도, 지금 필터된 목록의 1순위(원래도
-// 구매량 많은 순 정렬이라 자연스러운 기본값)를 바로 선택한다.
+// PM 확인).
 //
 // 2026-07-09 PM 재요청: 처음 진입 시 특정 조합을 자동으로 골라 바로 그래프를 보여주던 것을
 // 제거 — 검색으로 실제 선택하기 전(selectedKey==="")에는 데이터를 아예 가져오지 않고(page.tsx의
 // selectedUnitOption도 더 이상 options[0] 폴백 없음) 입력창은 빈 채로 안내 placeholder만 표시.
+//
+// 2026-07-09 PM 버그 리포트로 "검색" 버튼 제거: 그 버튼은 "지금 필터링된 목록의 1순위(구매량
+// 많은 순)를 선택"하는 동작이었는데, 검색어와 여러 개가 매칭될 때 사용자가 의도한 항목이 아니라
+// 다른 항목이 선택돼 입력창 라벨이 갑자기 바뀌는 게 "이상하게 초기화된다"고 느껴짐. 드롭다운에서
+// 직접 클릭하는 선택은 항상 정확한 항목을 고르므로 문제가 없었음 — 모호한 "1순위 자동 선택"
+// 로직 자체를 없애고 드롭다운 클릭 선택만 남긴다(ExpenseEntryForm의 VendorCombobox/ItemCombobox와
+// 동일하게 검색 버튼 없이 클릭으로만 선택).
 export function UnitPriceTrendChart({
   period,
   options,
@@ -119,63 +125,42 @@ export function UnitPriceTrendChart({
     router.push(`/?${params.toString()}`, { scroll: false });
   }
 
-  function handleSearch() {
-    const top = matches[0];
-    if (top) selectOption(top);
-  }
-
   const hasAnyData = trend.some((point) => point.avgUnitPrice !== null);
 
   return (
     <div>
-      <div className="relative mb-3 flex max-w-sm gap-2">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setIsDirty(true);
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            onBlur={() => setIsOpen(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-            placeholder="항목을 검색하세요"
-            className="h-9 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)]"
-          />
-          {isOpen && matches.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
-              {matches.map((option) => (
-                <li key={optionKey(option)}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      selectOption(option);
-                    }}
-                    className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
-                  >
-                    {optionLabel(option)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={matches.length === 0}
-          className="h-9 shrink-0 rounded-lg border border-[var(--paylens-action)] px-3 text-sm font-medium text-[var(--paylens-action)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          검색
-        </button>
+      <div className="relative mb-3 max-w-sm">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsDirty(true);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setIsOpen(false)}
+          placeholder="항목을 검색하세요"
+          className="h-9 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)]"
+        />
+        {isOpen && matches.length > 0 && (
+          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
+            {matches.map((option) => (
+              <li key={optionKey(option)}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectOption(option);
+                  }}
+                  className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
+                >
+                  {optionLabel(option)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {selectedKey === "" ? (

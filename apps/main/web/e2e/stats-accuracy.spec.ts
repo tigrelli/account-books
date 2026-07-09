@@ -106,12 +106,12 @@ test.describe("F-3-1-4 — 품목×단위 평균단가 추이 정확도", () => 
     await page.goto("/");
     const unitSection = page.locator("section", { hasText: "단가 분석" });
     // 2026-07-09 재설계: 처음 진입 시 자동 선택 없음(검색 전 데이터 미표시) — 검색창에 품목명을
-    // 입력하고 "검색" 버튼을 눌러야 해당 조합의 추이가 로드된다.
-    await unitSection.locator('input[placeholder="항목을 검색하세요"]').fill("당근");
-    await unitSection.getByRole("button", { name: "검색" }).click();
-    await expect(unitSection.locator('input[placeholder="항목을 검색하세요"]')).toHaveValue(
-      "당근 (kg)"
-    );
+    // 입력해 드롭다운에서 원하는 조합을 클릭해야 해당 조합의 추이가 로드된다("검색" 버튼은 모호한
+    // 1순위 자동 선택 문제로 이후 제거됨, 드롭다운 클릭 선택만 남음).
+    const searchInput = unitSection.locator('input[placeholder="항목을 검색하세요"]');
+    await searchInput.fill("당근");
+    await unitSection.getByRole("button", { name: "당근 (kg)" }).click();
+    await expect(searchInput).toHaveValue("당근 (kg)");
 
     const dot = unitSection.locator(".recharts-dot").last();
     await dot.hover();
