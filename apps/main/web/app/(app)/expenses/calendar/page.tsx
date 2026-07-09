@@ -40,8 +40,14 @@ export default async function ExpenseCalendarPage({
   const periodParts = period.split("-");
   const year = Number(periodParts[0]);
   const month = Number(periodParts[1]);
-  const rangeStart = new Date(year, month - 1, 1);
-  const rangeEnd = new Date(year, month, 1);
+  // 그리드는 6주(42칸) 고정이라 이번 달 앞뒤로 옆 달 날짜도 흐리게 함께 보여줌(ExpenseCalendarGrid의
+  // buildMonthGrid와 동일 로직으로 계산) — 조회 범위를 이번 달로만 좁히면 그 흐린 칸(예: 5월 그리드에
+  // 함께 보이는 4월 30일)에 실제 등록된 지출이 있어도 표시되지 않으므로, 그리드가 실제로 보여주는
+  // 42일 전체를 범위로 조회한다.
+  const firstOfMonth = new Date(year, month - 1, 1);
+  const rangeStart = new Date(year, month - 1, 1 - firstOfMonth.getDay());
+  const rangeEnd = new Date(rangeStart);
+  rangeEnd.setDate(rangeStart.getDate() + 42);
 
   const [
     { data: paymentMethods },
