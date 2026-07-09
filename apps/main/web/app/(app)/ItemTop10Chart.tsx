@@ -34,6 +34,9 @@ function periodMonthsAgo(period: string, monthsBack: number): string {
 // monthsBack(2026-07-09 PM 요청): 다른 위젯이 전부 공유하는 페이지 전역 period 이동과는 별개로,
 // 이 위젯만 "당월/최근 3개월/최근 6개월" 합산을 고를 수 있게 자체 쿼리 파라미터(itemRange)를 둔다
 // — 전역 이전달/다음달 링크를 건드리지 않기 위해서다.
+// 탭 Link는 scroll={false} 필수 — 기본값(scroll 유지)이면 페이지 하단 이 위젯을 보다가 탭을
+// 눌러도 Next.js가 새 내비게이션마다 스크롤을 맨 위로 올려버려, 그래프만 바뀌길 기대한 사용자가
+// "화면이 새로고침된 것처럼" 느끼는 버그가 있었음(PM 리포트로 발견).
 export function ItemTop10Chart({
   data,
   period,
@@ -57,6 +60,7 @@ export function ItemTop10Chart({
             key={range}
             href={`/?period=${period}&itemRange=${range}`}
             prefetch={false}
+            scroll={false}
             className={`rounded-md px-3 py-1 text-xs font-medium ${
               range === monthsBack
                 ? "bg-white text-[var(--paylens-action)] shadow-sm"
