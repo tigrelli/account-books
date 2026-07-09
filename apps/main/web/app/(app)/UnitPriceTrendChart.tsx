@@ -60,6 +60,10 @@ function CompactTooltip({
 // VendorCombobox/ItemCombobox와 동일한 입력창+필터 드롭다운 패턴으로 교체(검색 대상은 품목명만,
 // PM 확인). 옆의 "검색" 버튼은 드롭다운에서 직접 고르지 않아도, 지금 필터된 목록의 1순위(원래도
 // 구매량 많은 순 정렬이라 자연스러운 기본값)를 바로 선택한다.
+//
+// 2026-07-09 PM 재요청: 처음 진입 시 특정 조합을 자동으로 골라 바로 그래프를 보여주던 것을
+// 제거 — 검색으로 실제 선택하기 전(selectedKey==="")에는 데이터를 아예 가져오지 않고(page.tsx의
+// selectedUnitOption도 더 이상 options[0] 폴백 없음) 입력창은 빈 채로 안내 placeholder만 표시.
 export function UnitPriceTrendChart({
   period,
   options,
@@ -142,7 +146,7 @@ export function UnitPriceTrendChart({
                 handleSearch();
               }
             }}
-            placeholder="품목명으로 검색 (예: 양파)"
+            placeholder="항목을 검색하세요"
             className="h-9 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)]"
           />
           {isOpen && matches.length > 0 && (
@@ -174,7 +178,11 @@ export function UnitPriceTrendChart({
         </button>
       </div>
 
-      {hasAnyData ? (
+      {selectedKey === "" ? (
+        <p className="py-10 text-center text-sm text-[var(--color-text-secondary)]">
+          검색해서 확인할 품목을 선택하세요
+        </p>
+      ) : hasAnyData ? (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="#e2e8f0" />
