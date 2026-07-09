@@ -270,10 +270,11 @@ export interface ItemTop10DisplayEntry {
 export async function getItemTop10Display(
   supabase: SupabaseServerClient,
   userId: string,
-  period: string
+  period: string,
+  monthsBack: number = 1
 ): Promise<ItemTop10DisplayEntry[]> {
   const [top10, { data: items }] = await Promise.all([
-    getItemTop10(supabase, userId, period),
+    getItemTop10(supabase, userId, period, monthsBack),
     supabase.from("item").select("id, name, aliases, merged_into_item_id").eq("user_id", userId),
   ]);
 
