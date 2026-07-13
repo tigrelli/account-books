@@ -3,10 +3,7 @@
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { createUploadUrlSchema, type CreateUploadUrlInput } from "@/lib/utility-bill-schemas";
 import { createOCRProvider } from "@/lib/ocr";
-import {
-  parseUtilityBillCandidates,
-  type UtilityBillLineCandidate,
-} from "@/lib/utility-bill-parse";
+import { extractUtilityBill, type UtilityBillExtraction } from "@/lib/utility-bill-parse";
 
 // [S-2-5]에서 만든 비공개 버킷. 경로 규칙: {user_id}/{period}.{ext}.
 export const UTILITY_BILLS_BUCKET = "utility-bills";
@@ -50,13 +47,13 @@ export async function createUploadUrlAction(
 }
 
 export type ExtractUtilityBillResult =
-  | { status: "success"; candidates: UtilityBillLineCandidate[] }
+  | ({ status: "success" } & UtilityBillExtraction)
   | { status: "error"; message: string };
 
 /**
- * 업로드된 파일(createUploadUrlAction으로 저장된 경로)을 OCR로 읽어 라벨/금액 후보를
- * 추출한다. 항목 선정 화면(F-2-2-1)이 이 후보를 사용자에게 보여주고 최종 선택은
- * 사람이 한다 — 여기서는 후보만 만든다.
+ * 업로드된 파일(createUploadUrlAction으로 저장된 경로)을 OCR로 읽어 사용량별 지침표 +
+ * 관리비 상세표 + 총액/청구월 후보를 추출한다. 항목 선정 화면(F-2-2-1)이 이 후보를
+ * 사용자에게 보여주고 최종 확인은 사람이 한다 — 여기서는 후보만 만든다.
  */
 export async function extractUtilityBillAction(path: string): Promise<ExtractUtilityBillResult> {
   const supabase = await createSupabaseServerClient();
@@ -83,8 +80,8 @@ export async function extractUtilityBillAction(path: string): Promise<ExtractUti
   try {
     const provider = createOCRProvider();
     const ocrResult = await provider.extractText(buffer);
-    const candidates = parseUtilityBillCandidates(ocrResult);
-    return { status: "success", candidates };
+    const extraction = extractUtilityBill(ocrResult);
+    return { status: "success", ...extraction };
   } catch {
     return { status: "error", message: "OCR 처리에 실패했습니다" };
   }

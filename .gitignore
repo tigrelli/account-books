@@ -37,3 +37,7 @@ Thumbs.db
 
 # Google Sheets 서비스 계정 키 (절대 커밋 금지)
 scripts/.service-account.json
+
+# 개인정보 포함 가능 로컬 전용 자료 (실제 고지서 샘플 사진, CI 로그 다운로드 등 — 절대 커밋 금지)
+docs/sample/
+docs/logs/
