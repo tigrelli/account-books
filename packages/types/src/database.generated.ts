@@ -410,6 +410,128 @@ export type Database = {
         };
         Relationships: [];
       };
+      utility_bill_item: {
+        Row: {
+          created_at: string;
+          has_usage: boolean;
+          id: string;
+          is_active: boolean;
+          name: string;
+          source_labels: Json;
+          usage_unit: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          has_usage?: boolean;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          source_labels?: Json;
+          usage_unit?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          has_usage?: boolean;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          source_labels?: Json;
+          usage_unit?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      utility_bill_item_value: {
+        Row: {
+          amount: number;
+          created_at: string;
+          id: string;
+          item_id: string;
+          meter_current: number | null;
+          meter_previous: number | null;
+          record_id: string;
+          usage_value: number | null;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          id?: string;
+          item_id: string;
+          meter_current?: number | null;
+          meter_previous?: number | null;
+          record_id: string;
+          usage_value?: number | null;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          id?: string;
+          item_id?: string;
+          meter_current?: number | null;
+          meter_previous?: number | null;
+          record_id?: string;
+          usage_value?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "utility_bill_item_value_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "utility_bill_item";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "utility_bill_item_value_record_id_fkey";
+            columns: ["record_id"];
+            isOneToOne: false;
+            referencedRelation: "utility_bill_record";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      utility_bill_record: {
+        Row: {
+          created_at: string;
+          file_path: string | null;
+          id: string;
+          period: string;
+          source: string;
+          transaction_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          file_path?: string | null;
+          id?: string;
+          period: string;
+          source: string;
+          transaction_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          file_path?: string | null;
+          id?: string;
+          period?: string;
+          source?: string;
+          transaction_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "utility_bill_record_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transaction";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       vendor: {
         Row: {
           created_at: string;
