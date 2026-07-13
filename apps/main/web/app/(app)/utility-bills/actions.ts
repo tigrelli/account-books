@@ -2,6 +2,11 @@
 
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { createUploadUrlSchema, type CreateUploadUrlInput } from "@/lib/utility-bill-schemas";
+import { createOCRProvider } from "@/lib/ocr";
+import {
+  parseUtilityBillCandidates,
+  type UtilityBillLineCandidate,
+} from "@/lib/utility-bill-parse";
 
 // [S-2-5]에서 만든 비공개 버킷. 경로 규칙: {user_id}/{period}.{ext}.
 export const UTILITY_BILLS_BUCKET = "utility-bills";
@@ -42,4 +47,45 @@ export async function createUploadUrlAction(
   }
 
   return { status: "success", path: data.path, token: data.token };
+}
+
+export type ExtractUtilityBillResult =
+  | { status: "success"; candidates: UtilityBillLineCandidate[] }
+  | { status: "error"; message: string };
+
+/**
+ * 업로드된 파일(createUploadUrlAction으로 저장된 경로)을 OCR로 읽어 라벨/금액 후보를
+ * 추출한다. 항목 선정 화면(F-2-2-1)이 이 후보를 사용자에게 보여주고 최종 선택은
+ * 사람이 한다 — 여기서는 후보만 만든다.
+ */
+export async function extractUtilityBillAction(path: string): Promise<ExtractUtilityBillResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "로그인이 필요합니다" };
+
+  // Storage RLS가 어차피 타 사용자 경로 다운로드를 막지만, 더 명확한 에러 메시지를 위해
+  // 여기서도 한 번 더 확인한다(createUploadUrlAction과 동일한 방어 원칙).
+  if (!path.startsWith(`${user.id}/`)) {
+    return { status: "error", message: "잘못된 요청입니다" };
+  }
+
+  const { data: file, error: downloadError } = await supabase.storage
+    .from(UTILITY_BILLS_BUCKET)
+    .download(path);
+  if (downloadError || !file) {
+    return { status: "error", message: "파일을 불러오지 못했습니다" };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  try {
+    const provider = createOCRProvider();
+    const ocrResult = await provider.extractText(buffer);
+    const candidates = parseUtilityBillCandidates(ocrResult);
+    return { status: "success", candidates };
+  } catch {
+    return { status: "error", message: "OCR 처리에 실패했습니다" };
+  }
 }
