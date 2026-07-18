@@ -23,7 +23,16 @@ function nextResponse(table: string): FakeResponse {
   return tableQueues[table]?.[i] ?? { data: null, error: null };
 }
 
-const CHAIN_METHODS = ["select", "eq", "order", "limit", "insert", "delete"] as const;
+const CHAIN_METHODS = [
+  "select",
+  "eq",
+  "order",
+  "limit",
+  "insert",
+  "delete",
+  "update",
+  "in",
+] as const;
 
 function tableBuilder(table: string) {
   const builder: Record<string, unknown> = {};
@@ -70,8 +79,11 @@ vi.mock("@account-books/supabase-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { checkPeriodConflictAction, saveUtilityBillAction } =
-  await import("../app/(app)/utility-bills/actions");
+const {
+  checkPeriodConflictAction,
+  saveUtilityBillAction,
+  deactivateUnselectedUtilityBillItemsAction,
+} = await import("../app/(app)/utility-bills/actions");
 
 beforeEach(() => {
   tableQueues = {};
@@ -235,5 +247,56 @@ describe("saveUtilityBillAction", () => {
     const result = await saveUtilityBillAction(fd);
 
     expect(result).toEqual({ status: "error", message: "잘못된 요청입니다" });
+  });
+});
+
+// [F-2-2-2] 화면설계 §2-3 — 항목 선정 화면의 "선택한 항목으로 저장"이 선택되지 않은
+// 기존 활성 항목을 is_active=false로 전환하는지 검증.
+describe("deactivateUnselectedUtilityBillItemsAction", () => {
+  it("선택된 라벨과 일치하는 항목은 비활성화하지 않는다", async () => {
+    queueTable("utility_bill_item", { data: [{ id: "item-1", source_labels: ["일반관리비"] }] });
+
+    await deactivateUnselectedUtilityBillItemsAction(["일반관리비"]);
+
+    expect(
+      callLog.filter((c) => c.table === "utility_bill_item" && c.method === "update")
+    ).toHaveLength(0);
+  });
+
+  it("선택되지 않은 기존 활성 항목은 is_active=false로 전환한다", async () => {
+    queueTable(
+      "utility_bill_item",
+      { data: [{ id: "item-2", source_labels: ["정화조오물수수료"] }] },
+      { data: null, error: null }
+    );
+
+    await deactivateUnselectedUtilityBillItemsAction(["일반관리비"]);
+
+    const updateCall = callLog.find(
+      (c) => c.table === "utility_bill_item" && c.method === "update"
+    );
+    expect(updateCall?.args).toEqual([{ is_active: false }]);
+    const inCall = callLog.find((c) => c.table === "utility_bill_item" && c.method === "in");
+    expect(inCall?.args).toEqual(["id", ["item-2"]]);
+  });
+
+  it("공백 차이만 있는 라벨은 같은 항목으로 보고 비활성화하지 않는다", async () => {
+    queueTable("utility_bill_item", { data: [{ id: "item-3", source_labels: ["일반 관리비"] }] });
+
+    await deactivateUnselectedUtilityBillItemsAction(["일반관리비"]);
+
+    expect(
+      callLog.filter((c) => c.table === "utility_bill_item" && c.method === "update")
+    ).toHaveLength(0);
+  });
+
+  it("활성 항목이 없으면 아무것도 하지 않는다", async () => {
+    queueTable("utility_bill_item", { data: [] });
+
+    await deactivateUnselectedUtilityBillItemsAction(["일반관리비"]);
+
+    expect(
+      callLog.filter((c) => c.table === "utility_bill_item" && c.method === "update")
+    ).toHaveLength(0);
   });
 });

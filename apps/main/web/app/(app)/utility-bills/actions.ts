@@ -11,7 +11,11 @@ import {
   WATER_SEDAE_LABEL,
   type UtilityBillExtraction,
 } from "@/lib/utility-bill-parse";
-import { calculateFormatMatchRate, isSameFormat } from "@/lib/utility-bill-format-match";
+import {
+  calculateFormatMatchRate,
+  isSameFormat,
+  normalizeLabel,
+} from "@/lib/utility-bill-format-match";
 import type { ActiveUtilityBillItemInfo } from "@/lib/utility-bill-pending-storage";
 
 // [S-2-5]에서 만든 비공개 버킷. 경로 규칙: {user_id}/{period}.{ext}.
@@ -165,6 +169,40 @@ export async function checkUtilityBillFormatMatchAction(
   );
 
   return { isSameFormat: isSameFormat(matchRate), activeItems };
+}
+
+/**
+ * 화면설계 §2-3 — 항목 선정 화면에서 "선택한 항목으로 저장" 클릭 시, 이번에 선택하지
+ * 않은(이번 달에 없거나 사용자가 직접 해제한) 기존 활성 항목을 `is_active=false`로
+ * 전환한다. 새로 선택된 라벨의 `UTILITY_BILL_ITEM` 생성은 확인 화면(F-2-1-3)의 기존
+ * upsert 저장 로직이 그대로 처리하므로 여기서는 비활성화만 담당한다.
+ */
+export async function deactivateUnselectedUtilityBillItemsAction(
+  selectedLabels: string[]
+): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data } = await supabase
+    .from("utility_bill_item")
+    .select("id, source_labels")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
+  const normalizedSelected = selectedLabels.map(normalizeLabel);
+  const idsToDeactivate = (data ?? [])
+    .filter((item) => {
+      const sourceLabels = (item.source_labels as string[] | null) ?? [];
+      return !sourceLabels.some((alias) => normalizedSelected.includes(normalizeLabel(alias)));
+    })
+    .map((item) => item.id);
+
+  if (idsToDeactivate.length === 0) return;
+
+  await supabase.from("utility_bill_item").update({ is_active: false }).in("id", idsToDeactivate);
 }
 
 const CATEGORY_NAME = "관리비/공과금";

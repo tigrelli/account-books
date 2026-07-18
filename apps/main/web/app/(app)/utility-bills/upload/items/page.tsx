@@ -9,17 +9,17 @@ import {
 } from "@/lib/utility-bill-pending-storage";
 import { hasUsageForLabel } from "@/lib/utility-bill-parse";
 import { normalizeLabel } from "@/lib/utility-bill-format-match";
+import { deactivateUnselectedUtilityBillItemsAction } from "../../actions";
 
-// [F-2-2-1] 항목 선정 화면(화면설계 §2, `/utility-bills/upload/items`) — 최초 업로드
+// [F-2-2-1~2] 항목 선정 화면(화면설계 §2, `/utility-bills/upload/items`) — 최초 업로드
 // 또는 형식변경(매칭률 < 50%) 감지 시에만 `/utility-bills/upload`에서 이 페이지로
 // 진입한다(팝업이 아닌 별도 페이지, §2-1). extraction은 서버 액션이 아니라
 // sessionStorage로 이 페이지에 넘어온다(lib/utility-bill-pending-storage.ts 참고).
 //
-// **범위(F-2-2-2로 이월)**: "선택한 항목으로 저장"은 여기서는 선택된 항목만 남기고
-// 원래 확인 화면(F-2-1-3)으로 돌아가는 것까지만 한다 — 새로 선택된 라벨은 그 확인
-// 화면의 기존 저장 로직(라벨 upsert)이 그대로 UTILITY_BILL_ITEM을 만들어준다. 다만
-// "이번 달에 없어 해제된 기존 항목을 is_active=false로 전환"하는 것과 "최소 1개 선택"
-// 검증(화면설계 §2-3)은 아직 구현하지 않음 — F-2-2-2에서 진행.
+// **범위**: "선택한 항목으로 저장"은 ①선택하지 않은 기존 활성 항목을 is_active=false로
+// 전환(§2-3, deactivateUnselectedUtilityBillItemsAction)하고 ②선택된 항목만 남긴
+// extraction으로 원래 확인 화면(F-2-1-3)으로 돌아간다 — 새로 선택된 라벨의
+// UTILITY_BILL_ITEM 생성은 그 확인 화면의 기존 upsert 저장 로직이 그대로 처리한다.
 interface LoadState {
   loaded: boolean;
   pending: PendingExtraction | null;
@@ -91,7 +91,9 @@ export default function UtilityBillItemsPage() {
   }
 
   async function handleSave() {
+    if (selected.size === 0) return;
     const filteredItems = extraction.items.filter((item) => selected.has(item.label));
+    await deactivateUnselectedUtilityBillItemsAction(filteredItems.map((item) => item.label));
     await savePendingExtraction(
       { ...extraction, items: filteredItems },
       file,
@@ -161,10 +163,17 @@ export default function UtilityBillItemsPage() {
           </div>
         )}
 
+        {selected.size === 0 && (
+          <p className="text-center text-xs text-[var(--paylens-accent)]">
+            최소 1개 이상 선택해주세요
+          </p>
+        )}
+
         <button
           type="button"
+          disabled={selected.size === 0}
           onClick={() => void handleSave()}
-          className="h-10 w-full rounded-lg bg-[var(--paylens-action)] text-sm font-medium text-white hover:opacity-90"
+          className="h-10 w-full rounded-lg bg-[var(--paylens-action)] text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           선택한 항목으로 저장
         </button>
