@@ -463,3 +463,31 @@
 | 1   | 신규 계정으로 대시보드 최초 진입 + 재방문 각각 로드 시간 측정 | 두 번 모두 5,000ms 예산 안에 완료 |
 
 > 이 테스트는 "얼마나 빠른가"의 정밀 비교가 아니라 "터무니없이 느려지지 않았는가"의 상시 감시용 — 위 ①/②의 정밀 수치 비교는 대량 시딩이 필요해 일회성 벤치마크로만 수행하고 커밋하지 않음. 실행: `pnpm test:e2e`. 1/1 통과. 전체 회귀 스위트(46개, T-5-3까지의 45개 + 이번 1개) 46/46 통과, typecheck/lint 통과. 46개 전체 병렬 실행 중 `dashboard.spec.ts` 1건이 병렬 부하로 일시 실패했으나(이전에도 반복 관찰된 동일 패턴) 단독 재실행 및 전체 재실행 모두 안정적으로 통과 — 로직 결함이 아닌 리소스 경합성 플레이키로 판단, 별도 수정 없음.
+
+---
+
+## T-2-1 — 관리비 명세서 업로드 플로우 단위테스트 (최초/재업로드-동일형식/형식변경, F-2-1-1~3 커버)
+
+> 2026-07-18 구현(2차 개발). **범위 확정(PM 확인)**: WBS는 "최초/재업로드-동일형식/형식변경" 3케이스를 요구하지만, S-2-9에서 만든 형식변경 판정 함수(`calculateFormatMatchRate`/`isSameFormat`)는 백로그 B-13 결정에 따라 실제 업로드 플로우(`checkPeriodConflictAction`/`saveUtilityBillAction`)에 아직 연동되어 있지 않다(재업로드는 형식이 같든 다르든 항상 `confirm_needed`로 동일 처리) — 그래서 "형식변경"은 판정 함수가 아니라, `saveUtilityBillAction`이 이미 실제로 하는 **라벨 기준 `UTILITY_BILL_ITEM` upsert**(기존 라벨이면 재사용, 처음 보는 라벨이면 신규 생성)로 구현해 테스트했다. 이 레포에서 `createSupabaseServerClient()`를 통째로 모킹해 server action을 단위테스트한 첫 사례(기존엔 `stats-cache.ts`처럼 supabase를 파라미터로 받는 함수만 테스트 가능했음, PM 확인 후 채택) — `from(table)` 체이닝 빌더가 테이블별로 큐잉된 응답을 순서대로 반환하는 방식.
+>
+> **부수 발견**: `actions.ts`가 값 import로 쓰는 `@/lib/utility-bill-schemas`를 처음 직접 로드하며 vitest가 `@/` 별칭을 해석 못 해 실패 확인 — 기존 테스트는 전부 `@/...` import가 `import type`이라 트랜스파일 시 제거돼 드러나지 않았던 갭. `vitest.config.ts`에 `resolve.alias`로 tsconfig의 `@/*`와 동일하게 매핑해 해결.
+
+### 단위 테스트 (`__tests__/utility-bill-actions.test.ts`)
+
+| #   | 시나리오                                                 | 입력                                                           | 기댓값                                                                                     |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | `checkPeriodConflictAction` — 기존 등록 없음             | 해당 청구월에 `utility_bill_record` 없음                       | `{ status: "none" }`(최초 업로드)                                                          |
+| 2   | `checkPeriodConflictAction` — 수동 등록 존재(케이스 A)   | 기존 레코드 `source: "MANUAL"`                                 | `{ status: "blocked" }`                                                                    |
+| 3   | `checkPeriodConflictAction` — 업로드 등록 존재(케이스 B) | 기존 레코드 `source: "UPLOAD"`                                 | `{ status: "confirm_needed" }`                                                             |
+| 4   | `saveUtilityBillAction` — 최초 업로드                    | 지출처/항목 미존재, `replaceExisting: false`                   | 성공, `vendor`/`utility_bill_item` 각 1건 신규 INSERT, `transaction` DELETE 없음           |
+| 5   | `saveUtilityBillAction` — 재업로드-동일형식              | 기존 지출처/라벨("일반관리비") 그대로, `replaceExisting: true` | 성공, 기존 `transaction` 1건 DELETE, `vendor`/`utility_bill_item` 신규 INSERT 없음(재사용) |
+| 6   | `saveUtilityBillAction` — 재업로드-형식변경              | 처음 보는 라벨("정화조오물수수료"), `replaceExisting: true`    | 성공, 기존 `transaction` DELETE + 새 라벨로 `utility_bill_item` 1건 신규 INSERT            |
+| 7   | `saveUtilityBillAction` — 카테고리 없음                  | "관리비/공과금" 카테고리 미존재                                | `{ status: "error", message: "관리비/공과금 카테고리를 찾을 수 없습니다" }`                |
+| 8   | `saveUtilityBillAction` — 필수 필드 누락                 | `paymentMethodId`/`occurredAt`/`file` 누락                     | `{ status: "error", message: "잘못된 요청입니다" }`                                        |
+| 9   | `saveUtilityBillAction` — extraction JSON 파싱 실패      | `extraction: "{ not json"`                                     | `{ status: "error", message: "잘못된 요청입니다" }`                                        |
+
+> 실행: `pnpm test`. 9/9 통과(전체 스위트 131/131 통과, 기존 회귀 없음), typecheck/lint 통과.
+
+### E2E 테스트
+
+> 미작성. F-2-1-1~3 완료 시 실제 사진으로 브라우저 검증은 이미 각 TASK(`docs/2차/진행현황.md`)에서 수행됨 — 자동화된 E2E(`e2e/utility-bill-upload.spec.ts`)는 항목 선정 화면(F-2-2-1~2, 백로그 B-13 보류 부분 제외)까지 포함해 T-2-2/T-2-4에서 통합 작성 예정.
