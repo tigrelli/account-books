@@ -492,3 +492,15 @@ export function extractUtilityBill(result: OCRResult): UtilityBillExtraction {
     items: [...tableItems, ...extractUtilityFeeItems(blocks, usageTable)],
   };
 }
+
+/**
+ * 이 라벨(세대분 전기/수도료)이 사용량별 지침표와 연결되는지 여부 — 항목 선정 화면
+ * (F-2-2-1)의 "사용량 연결됨" 배지 표시에 쓴다. actions.ts의 저장 로직도 같은 라벨
+ * 기준으로 usageTable을 연결하지만(usageByLabel), 거기는 meter 값까지 필요해 별도로
+ * 유지한다 — 여긴 배지용 boolean만.
+ */
+export function hasUsageForLabel(label: string, usageTable: UsageTableRow[]): boolean {
+  if (label === ELECTRICITY_SEDAE_LABEL) return usageTable.some((u) => u.item === "전기");
+  if (label === WATER_SEDAE_LABEL) return usageTable.some((u) => u.item === "수도");
+  return false;
+}

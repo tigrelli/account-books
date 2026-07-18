@@ -7,7 +7,8 @@ export const FORMAT_MATCH_THRESHOLD = 0.5;
 
 // OCR이 "일반관리비"를 "일반"+"관리비" 두 단어로 인식해 합칠 때 공백이 들어가는 등
 // (S-2-8 실사진 검증에서 발견), 공백 차이만으로 불일치 판정되지 않도록 정규화한다.
-function normalizeLabel(label: string): string {
+// F-2-2-1(항목 선정 화면)의 "이번 달에 없음" 판정도 동일 기준을 써야 해서 export.
+export function normalizeLabel(label: string): string {
   return label.replace(/\s+/g, "");
 }
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   extractUtilityBillAction,
   checkPeriodConflictAction,
+  checkUtilityBillFormatMatchAction,
   getRecentPaymentMethodAction,
   getActivePaymentMethodsAction,
   saveUtilityBillAction,
@@ -16,6 +17,11 @@ import { SuccessDialog } from "../../_components/SuccessDialog";
 import { PaymentMethodPickerDialog } from "./PaymentMethodPickerDialog";
 import { compressImage } from "@/lib/image-compress";
 import { lastDayOfPeriod } from "@/lib/period-utils";
+import {
+  savePendingExtraction,
+  loadPendingExtraction,
+  clearPendingExtraction,
+} from "@/lib/utility-bill-pending-storage";
 import {
   UTILITY_BILL_SECTIONS,
   ELECTRICITY_SEDAE_LABEL,
@@ -177,9 +183,11 @@ function UtilityFeeSectionTable({ items }: { items: UtilityBillItemCandidate[] }
   );
 }
 
-// [F-2-1-1~3] 명세서 업로드: 파일 선택 → OCR 미리보기 → 재업로드 충돌 판정(케이스 A/B) →
-// 결제수단/지출일 확정 → 저장(TRANSACTION + UTILITY_BILL_RECORD + UTILITY_BILL_ITEM_VALUE
-// 생성, 원본 파일 Storage 업로드).
+// [F-2-1-1~3, F-2-2-1] 명세서 업로드: 파일 선택 → OCR 미리보기 → 재업로드 충돌 판정
+// (케이스 A/B) → 매칭률 판정(S-2-9, §1-2 3번) — 동일 양식이면 바로, 최초/형식변경이면
+// 항목 선정 화면(/utility-bills/upload/items)을 거쳐 → 결제수단/지출일 확정 →
+// 저장(TRANSACTION + UTILITY_BILL_RECORD + UTILITY_BILL_ITEM_VALUE 생성, 원본 파일
+// Storage 업로드).
 export function UtilityBillUploadSection({ recentStatus }: { recentStatus: PeriodStatus[] }) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>({ step: "idle" });
@@ -193,6 +201,23 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
   // 있어 onConfirm이 이미 stage를 바꿨어도 그걸 못 보고 옛 stage 기준으로 판단한다 —
   // 확인 버튼을 눌렀다는 사실 자체를 ref로 표시해 onOpenChange가 건너뛰게 한다.
   const paymentConfirmedRef = useRef(false);
+
+  // 화면설계 §1-2 3번 — 매칭률 ≥ 50%면 바로 결제수단 확정(F-2-1-3)으로, 미만(지정 항목이
+  // 하나도 없는 최초 업로드 포함)이면 항목 선정 화면(F-2-2-1)으로 보낸다.
+  async function proceedAfterConflictResolved(
+    extraction: SuccessExtraction,
+    file: File,
+    replaceExisting: boolean
+  ) {
+    const labels = extraction.items.map((i) => i.label);
+    const formatMatch = await checkUtilityBillFormatMatchAction(labels);
+    if (!formatMatch.isSameFormat) {
+      await savePendingExtraction(extraction, file, replaceExisting, formatMatch.activeItems);
+      router.push("/utility-bills/upload/items");
+      return;
+    }
+    await resolvePaymentMethod(extraction, file, replaceExisting);
+  }
 
   async function resolvePaymentMethod(
     extraction: SuccessExtraction,
@@ -215,6 +240,18 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
     const options = await getActivePaymentMethodsAction();
     setStage({ step: "select-payment", extraction, file, replaceExisting, options });
   }
+
+  // [F-2-2-1] 항목 선정 화면(별도 페이지)에서 "선택한 항목으로 저장" 후 돌아왔을 때 —
+  // sessionStorage에 필터링된 extraction이 남아있으면 파일 선택 단계를 건너뛰고 바로
+  // 결제수단 확정으로 이어간다(PM 확인: 항목 선정은 선택만 저장하고 기존 확인화면으로
+  // 이동하는 구조, 2026-07-18).
+  useEffect(() => {
+    const pending = loadPendingExtraction();
+    if (!pending) return;
+    clearPendingExtraction();
+    const extraction: SuccessExtraction = { status: "success", ...pending.extraction };
+    void resolvePaymentMethod(extraction, pending.file, pending.replaceExisting);
+  }, []);
 
   async function processFile(file: File) {
     setStage({ step: "processing" });
@@ -248,7 +285,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         setStage({ step: "confirm-reupload", extraction, file: compressed });
         return;
       }
-      await resolvePaymentMethod(extraction, compressed, false);
+      await proceedAfterConflictResolved(extraction, compressed, false);
     } catch {
       // 서버 액션이 예외로 끊기는 경우(네트워크 오류, 본문 크기 초과 등) "처리 중..."에
       // 멈춰있지 않도록 방어.
@@ -445,7 +482,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         confirmLabel="재업로드"
         onConfirm={() => {
           if (stage.step === "confirm-reupload") {
-            void resolvePaymentMethod(stage.extraction, stage.file, true);
+            void proceedAfterConflictResolved(stage.extraction, stage.file, true);
           }
         }}
       />

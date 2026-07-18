@@ -11,6 +11,8 @@ import {
   WATER_SEDAE_LABEL,
   type UtilityBillExtraction,
 } from "@/lib/utility-bill-parse";
+import { calculateFormatMatchRate, isSameFormat } from "@/lib/utility-bill-format-match";
+import type { ActiveUtilityBillItemInfo } from "@/lib/utility-bill-pending-storage";
 
 // [S-2-5]에서 만든 비공개 버킷. 경로 규칙: {user_id}/{period}.{ext}.
 // "use server" 파일을 클라이언트 컴포넌트가 import하면 Next.js가 모든 export를 서버
@@ -123,6 +125,46 @@ export async function checkPeriodConflictAction(period: string): Promise<Conflic
 
   if (!existing) return { status: "none" };
   return existing.source === "MANUAL" ? { status: "blocked" } : { status: "confirm_needed" };
+}
+
+export interface FormatMatchResult {
+  isSameFormat: boolean;
+  activeItems: ActiveUtilityBillItemInfo[];
+}
+
+/**
+ * 화면설계 §1-2 3번 — 추출된 라벨과 사용자의 기존 지정 항목(활성 `UTILITY_BILL_ITEM.
+ * source_labels`)을 비교해 매칭률(S-2-9)을 계산한다. 매칭률 ≥ 50%면 확인 화면(F-2-1-3)
+ * 으로 바로 진행하고, 미만(지정 항목이 아예 없는 최초 업로드 포함)이면 항목 선정 화면
+ * (F-2-2-1)으로 보낸다. `activeItems`는 항목 선정 화면에서 "이번 달에 없음" 구획을
+ * 만드는 데도 재사용한다.
+ */
+export async function checkUtilityBillFormatMatchAction(
+  extractedLabels: string[]
+): Promise<FormatMatchResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { isSameFormat: false, activeItems: [] };
+
+  const { data } = await supabase
+    .from("utility_bill_item")
+    .select("name, source_labels")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
+  const activeItems: ActiveUtilityBillItemInfo[] = (data ?? []).map((i) => ({
+    name: i.name,
+    sourceLabels: (i.source_labels as string[] | null) ?? [],
+  }));
+
+  const matchRate = calculateFormatMatchRate(
+    extractedLabels,
+    activeItems.map((i) => i.sourceLabels)
+  );
+
+  return { isSameFormat: isSameFormat(matchRate), activeItems };
 }
 
 const CATEGORY_NAME = "관리비/공과금";
