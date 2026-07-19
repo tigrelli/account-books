@@ -2,15 +2,14 @@ import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
 
 // 테스트용 고유 계정 생성 — OCR은 OCR_PROVIDER=fixture(playwright.config.ts)로 결정적
-// 결과를 반환하므로 업로드하는 사진 파일 자체의 내용은 무시된다(브라우저 압축
-// 단계에서는 실제 디코딩 가능한 이미지가 필요해 docs/sample/의 실사진을 그대로 쓴다).
+// 결과를 반환하므로 업로드하는 사진 파일 자체의 내용은 무시된다(브라우저 압축 단계에는 실제
+// 디코딩 가능한 이미지가 필요할 뿐). docs/sample/의 실사진(개인정보 포함)은 .gitignore
+// 처리돼 있어 CI 체크아웃엔 없다 — 대신 커밋된 합성 픽스처 이미지를 쓴다
+// (2026-07-19, 실제 CI 실행에서 ENOENT로 발견).
 const testEmail = () => `ub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`;
 const testPassword = "testpass123!";
 const testName = "관리비테스트";
-const samplePhoto = path.resolve(
-  __dirname,
-  "../../../../docs/sample/화면 캡처 2026-07-13 174057.png"
-);
+const samplePhoto = path.resolve(__dirname, "./fixtures/utility-bill-sample.png");
 
 async function signUpAndLogin(page: Page): Promise<void> {
   await page.goto("/signup");

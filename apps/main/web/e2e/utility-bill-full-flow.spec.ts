@@ -3,15 +3,13 @@ import path from "node:path";
 
 // T-2-4: 관리비 전체 E2E(업로드→선정→통계→메인수정→불일치알림 확인). OCR은
 // OCR_PROVIDER=fixture(playwright.config.ts)로 결정적 결과를 반환하므로 업로드하는 사진
-// 파일 자체의 내용은 무시된다(브라우저 압축 단계에는 실제 디코딩 가능한 이미지가 필요해
-// docs/sample/의 실사진을 그대로 씀 — T-2-2와 동일 픽스처).
+// 파일 자체의 내용은 무시된다(브라우저 압축 단계에는 실제 디코딩 가능한 이미지가 필요할 뿐).
+// docs/sample/의 실사진(개인정보 포함)은 .gitignore 처리돼 있어 CI 체크아웃엔 없다 — 대신
+// 커밋된 합성 픽스처 이미지를 쓴다(2026-07-19, 실제 CI 실행에서 ENOENT로 발견, T-2-2와 동일 픽스처).
 const testEmail = () => `full_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`;
 const testPassword = "testpass123!";
 const testName = "관리비전체플로우테스트";
-const samplePhoto = path.resolve(
-  __dirname,
-  "../../../../docs/sample/화면 캡처 2026-07-13 174057.png"
-);
+const samplePhoto = path.resolve(__dirname, "./fixtures/utility-bill-sample.png");
 
 async function signUpAndLogin(page: Page): Promise<void> {
   await page.goto("/signup");
