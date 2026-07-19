@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
+import { formatCurrencySigned } from "@account-books/utils";
 import {
+  getUtilityBillChangeRate,
   getUtilityBillItemTrend,
+  getUtilityBillLatestItemBreakdown,
   getUtilityBillTotalTrend,
   TOP_CHANGED_ITEM_LIMIT,
 } from "@/lib/utility-bill-stats-queries";
 import { TotalTrendChart } from "./TotalTrendChart";
 import { ItemTrendChart } from "./ItemTrendChart";
+import { ItemShareDonutChart } from "./ItemShareDonutChart";
 
 // 업로드 직후 같은 통계를 바로 볼 수 있어야 하므로(홈/지출 목록과 동일 원칙) 캐시하지 않는다.
 export const dynamic = "force-dynamic";
@@ -32,10 +36,13 @@ export default async function UtilityBillStatsPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && yearRegex.test(yearParam) ? yearParam : currentYear();
 
-  const [totalTrend, itemTrend] = await Promise.all([
+  const [totalTrend, itemTrend, changeRate, itemBreakdown] = await Promise.all([
     getUtilityBillTotalTrend(supabase, year),
     getUtilityBillItemTrend(supabase, year),
+    getUtilityBillChangeRate(supabase),
+    getUtilityBillLatestItemBreakdown(supabase),
   ]);
+  const isIncrease = changeRate.changeRate !== null && changeRate.changeRate > 0;
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
@@ -80,6 +87,27 @@ export default async function UtilityBillStatsPage({
         </section>
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <p className="text-sm text-[var(--color-text-secondary)]">전월 대비</p>
+          {changeRate.changeRate === null ? (
+            <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+              비교할 {changeRate.currentTotal === null ? "이번 달" : "전월"} 데이터 없음
+            </p>
+          ) : (
+            <p
+              className={`mt-2 font-mono text-2xl font-bold ${isIncrease ? "text-[var(--paylens-accent)]" : "text-[var(--color-text-primary)]"}`}
+            >
+              {formatCurrencySigned(
+                (changeRate.currentTotal ?? 0) - (changeRate.previousTotal ?? 0)
+              )}
+              <span className="ml-1 text-base font-semibold">
+                ({changeRate.changeRate > 0 ? "+" : ""}
+                {Math.round(changeRate.changeRate * 100)}%)
+              </span>
+            </p>
+          )}
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
           <p className="text-sm text-[var(--color-text-secondary)]">항목별 추이</p>
           {itemTrend.totalActiveItemCount > TOP_CHANGED_ITEM_LIMIT && (
             <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
@@ -88,6 +116,11 @@ export default async function UtilityBillStatsPage({
             </p>
           )}
           <ItemTrendChart items={itemTrend.items} points={itemTrend.points} />
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <p className="mb-2 text-sm text-[var(--color-text-secondary)]">이번 달 항목별 비중</p>
+          <ItemShareDonutChart data={itemBreakdown} />
         </section>
       </div>
     </div>

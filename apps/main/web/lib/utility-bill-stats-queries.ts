@@ -150,3 +150,81 @@ export async function getUtilityBillItemTrend(
 
   return { items: topItems, points, totalActiveItemCount: items.length };
 }
+
+function currentAndPreviousPeriod(): { current: string; previous: string } {
+  const now = new Date();
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previous = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+  return { current, previous };
+}
+
+export interface UtilityBillChangeRate {
+  currentPeriod: string;
+  previousPeriod: string;
+  currentTotal: number | null;
+  previousTotal: number | null;
+  changeRate: number | null;
+}
+
+// F-2-3-3: 이번 달 대비 지난달 총액 증감률 — getDashboardSummary(F-1-8-1)와 동일 컨벤션(이번
+// 달/지난달 중 하나라도 미등록이면 changeRate는 null, 지난달이 0원이면 나눗셈이 무의미해 역시
+// null). 연도 선택(?year=)과 무관하게 항상 실제 오늘 기준 최신 상태를 보여준다 — 아래 항목별
+// 추이/총액 추이처럼 과거 연도를 탐색하는 위젯이 아니라 "현재 스냅샷" 위젯이라 연동하지 않는다.
+export async function getUtilityBillChangeRate(
+  supabase: SupabaseServerClient
+): Promise<UtilityBillChangeRate> {
+  const { current, previous } = currentAndPreviousPeriod();
+
+  const { data } = await supabase
+    .from("utility_bill_record")
+    .select("period, transaction:transaction_id!inner(amount)")
+    .in("period", [current, previous]);
+
+  const byPeriod = new Map((data ?? []).map((row) => [row.period, row.transaction.amount]));
+  const currentTotal = byPeriod.get(current) ?? null;
+  const previousTotal = byPeriod.get(previous) ?? null;
+  const changeRate =
+    currentTotal != null && previousTotal != null && previousTotal > 0
+      ? (currentTotal - previousTotal) / previousTotal
+      : null;
+
+  return {
+    currentPeriod: current,
+    previousPeriod: previous,
+    currentTotal,
+    previousTotal,
+    changeRate,
+  };
+}
+
+export interface UtilityBillItemShare {
+  itemId: string;
+  itemName: string;
+  amount: number;
+}
+
+// F-2-3-3: 이번 달 청구서의 항목별 비중 도넛용 데이터(화면설계 §3-1 "최근 달 기준"). 그 달에
+// 실제로 청구된 항목만 대상 — 이후 비활성화된 항목이라도 그 달 실제 명세서 구성을 그대로
+// 보여줘야 하므로 UTILITY_BILL_ITEM.is_active로 거르지 않는다(항목별 추이 위젯과 다른 점).
+export async function getUtilityBillLatestItemBreakdown(
+  supabase: SupabaseServerClient
+): Promise<UtilityBillItemShare[]> {
+  const { current } = currentAndPreviousPeriod();
+
+  const { data: record } = await supabase
+    .from("utility_bill_record")
+    .select("item_values:utility_bill_item_value(item_id, amount, item:item_id(name))")
+    .eq("period", current)
+    .maybeSingle();
+
+  if (!record) return [];
+
+  return record.item_values
+    .map((value) => ({
+      itemId: value.item_id,
+      itemName: value.item.name,
+      amount: value.amount,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+}
