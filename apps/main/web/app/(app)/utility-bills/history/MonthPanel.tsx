@@ -24,6 +24,11 @@ export function MonthPanel({
     >
       <p className="mb-3 text-sm font-semibold text-[var(--color-text-primary)]">
         {period} · {formatMonthLabel(period)}
+        {panel?.billedPeriod && (
+          <span className="ml-1 font-normal text-[var(--color-text-secondary)]">
+            ({formatMonthLabel(panel.billedPeriod)})
+          </span>
+        )}
       </p>
 
       {!panel && (

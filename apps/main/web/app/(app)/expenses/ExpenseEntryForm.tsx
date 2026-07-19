@@ -9,6 +9,7 @@ import { formatPaymentMethodLabel } from "@/lib/payment-method-format";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { emptyValues, type DetailRow, type FieldValues } from "@/lib/expense-form-values";
 import { SuccessDialog } from "../_components/SuccessDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type { DetailRow, FieldValues } from "@/lib/expense-form-values";
 
@@ -541,6 +542,7 @@ export function ExpenseEntryForm({
 
   const detailTotal = sumDetailAmounts(detailRows);
   const [showUtilityBillNotice, setShowUtilityBillNotice] = useState(false);
+  const queryClient = useQueryClient();
 
   // 렌더 중 state 객체 참조 비교로 성공 시 폼 초기화(useEffect 캐스케이드 회피 — CLAUDE.md 컨벤션)
   const [prevState, setPrevState] = useState(state);
@@ -549,6 +551,15 @@ export function ExpenseEntryForm({
     if (state.status === "success") {
       setValues(emptyValues);
       setDetailRows([]);
+      // updateExpenseAction/addExpenseAction의 revalidatePath는 서버(RSC) 캐시만 무효화한다 —
+      // 지출 내역 목록(ExpensesListClient)은 React Query로 별도 클라이언트 캐시를 갖고 있어
+      // (DeleteExpenseButton과 동일한 이유) 여기서 직접 invalidate하지 않으면 staleTime(30초)
+      // 동안 수정 전 값이 목록에 그대로 남아 보인다(2026-07-19 PM 실사용 중 발견 — 지출일 수정
+      // 후 목록에서 옛 날짜가 보이던 버그).
+      queueMicrotask(() => {
+        queryClient.invalidateQueries({ queryKey: ["expenses-offset"] });
+        queryClient.invalidateQueries({ queryKey: ["expenses-cursor"] });
+      });
       if (isEditMode && isUtilityBill) {
         // 알림 팝업을 확인(닫기)한 뒤에야 onSuccess(페이지 이동/팝업 닫기)를 호출 —
         // 먼저 이동/닫힘이 일어나면 이 알림도 같이 사라져 사용자가 못 볼 수 있다.
