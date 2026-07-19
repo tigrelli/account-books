@@ -4,6 +4,7 @@ import {
   getUtilityBillItemTrend,
   getUtilityBillChangeRate,
   getUtilityBillLatestItemBreakdown,
+  getUtilityBillTotalMismatch,
   TOP_CHANGED_ITEM_LIMIT,
 } from "../lib/utility-bill-stats-queries";
 
@@ -206,5 +207,50 @@ describe("getUtilityBillLatestItemBreakdown", () => {
       { itemId: "item-2", itemName: "전기료", amount: 50000 },
       { itemId: "item-1", itemName: "일반관리비", amount: 10000 },
     ]);
+  });
+});
+
+describe("getUtilityBillTotalMismatch", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 18)); // 2026-07-18 → 이번 달 2026-07
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("이번 달 등록이 없으면 null을 반환한다(알림 숨김)", async () => {
+    const supabase = fakeSupabase({ utility_bill_record: null });
+
+    const result = await getUtilityBillTotalMismatch(supabase);
+
+    expect(result).toBeNull();
+  });
+
+  it("지정 항목 합계와 실제 등록 금액이 같으면 null을 반환한다", async () => {
+    const supabase = fakeSupabase({
+      utility_bill_record: {
+        item_values: [{ amount: 100000 }, { amount: 30000 }],
+        transaction: { amount: 130000 },
+      },
+    });
+
+    const result = await getUtilityBillTotalMismatch(supabase);
+
+    expect(result).toBeNull();
+  });
+
+  it("항목 해제 등으로 지정 항목 합계가 실제 등록 금액보다 작으면 불일치를 반환한다", async () => {
+    const supabase = fakeSupabase({
+      utility_bill_record: {
+        item_values: [{ amount: 100000 }],
+        transaction: { amount: 130000 },
+      },
+    });
+
+    const result = await getUtilityBillTotalMismatch(supabase);
+
+    expect(result).toEqual({ itemsTotal: 100000, officialTotal: 130000 });
   });
 });

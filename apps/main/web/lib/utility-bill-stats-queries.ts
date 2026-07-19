@@ -228,3 +228,33 @@ export async function getUtilityBillLatestItemBreakdown(
     }))
     .sort((a, b) => b.amount - a.amount);
 }
+
+export interface UtilityBillTotalMismatch {
+  itemsTotal: number;
+  officialTotal: number;
+}
+
+// F-2-4-2: 이번 달 지정 항목 합계(UTILITY_BILL_ITEM_VALUE)와 실제 등록 금액(TRANSACTION.amount)이
+// 다른지 확인(화면설계 §3-3) — 항목 선정 화면(F-2-2-1/2)에서 항목을 해제해도 TRANSACTION.amount는
+// OCR 추출 총액 그대로라 의도적으로 불일치가 생길 수 있고, 지출 수정 화면에서 금액을 직접
+// 고쳐도 발생한다. 일치하면 null(알림 아이콘 숨김) — getUtilityBillLatestItemBreakdown과 동일하게
+// "이번 달" 기준만 본다(PM 확인, 2026-07-19).
+export async function getUtilityBillTotalMismatch(
+  supabase: SupabaseServerClient
+): Promise<UtilityBillTotalMismatch | null> {
+  const { current } = currentAndPreviousPeriod();
+
+  const { data: record } = await supabase
+    .from("utility_bill_record")
+    .select("item_values:utility_bill_item_value(amount), transaction:transaction_id!inner(amount)")
+    .eq("period", current)
+    .maybeSingle();
+
+  if (!record) return null;
+
+  const itemsTotal = record.item_values.reduce((sum, v) => sum + v.amount, 0);
+  const officialTotal = record.transaction.amount;
+  if (itemsTotal === officialTotal) return null;
+
+  return { itemsTotal, officialTotal };
+}

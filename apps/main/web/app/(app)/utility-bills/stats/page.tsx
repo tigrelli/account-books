@@ -6,12 +6,14 @@ import {
   getUtilityBillChangeRate,
   getUtilityBillItemTrend,
   getUtilityBillLatestItemBreakdown,
+  getUtilityBillTotalMismatch,
   getUtilityBillTotalTrend,
   TOP_CHANGED_ITEM_LIMIT,
 } from "@/lib/utility-bill-stats-queries";
 import { TotalTrendChart } from "./TotalTrendChart";
 import { ItemTrendChart } from "./ItemTrendChart";
 import { ItemShareDonutChart } from "./ItemShareDonutChart";
+import { TotalMismatchAlert } from "./TotalMismatchAlert";
 
 // 업로드 직후 같은 통계를 바로 볼 수 있어야 하므로(홈/지출 목록과 동일 원칙) 캐시하지 않는다.
 export const dynamic = "force-dynamic";
@@ -36,11 +38,12 @@ export default async function UtilityBillStatsPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && yearRegex.test(yearParam) ? yearParam : currentYear();
 
-  const [totalTrend, itemTrend, changeRate, itemBreakdown] = await Promise.all([
+  const [totalTrend, itemTrend, changeRate, itemBreakdown, totalMismatch] = await Promise.all([
     getUtilityBillTotalTrend(supabase, year),
     getUtilityBillItemTrend(supabase, year),
     getUtilityBillChangeRate(supabase),
     getUtilityBillLatestItemBreakdown(supabase),
+    getUtilityBillTotalMismatch(supabase),
   ]);
   const isIncrease = changeRate.changeRate !== null && changeRate.changeRate > 0;
 
@@ -54,13 +57,16 @@ export default async function UtilityBillStatsPage({
               등록된 관리비 명세서의 연간 추이입니다
             </p>
           </div>
-          <Link
-            href="/utility-bills/upload"
-            prefetch={false}
-            className="shrink-0 text-sm font-medium text-[var(--paylens-action)] hover:underline"
-          >
-            명세서 업로드
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {totalMismatch && <TotalMismatchAlert mismatch={totalMismatch} />}
+            <Link
+              href="/utility-bills/upload"
+              prefetch={false}
+              className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+            >
+              명세서 업로드
+            </Link>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3">
