@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
-import { getUtilityBillTotalTrend } from "@/lib/utility-bill-stats-queries";
+import {
+  getUtilityBillItemTrend,
+  getUtilityBillTotalTrend,
+  TOP_CHANGED_ITEM_LIMIT,
+} from "@/lib/utility-bill-stats-queries";
 import { TotalTrendChart } from "./TotalTrendChart";
+import { ItemTrendChart } from "./ItemTrendChart";
 
 // 업로드 직후 같은 통계를 바로 볼 수 있어야 하므로(홈/지출 목록과 동일 원칙) 캐시하지 않는다.
 export const dynamic = "force-dynamic";
@@ -27,7 +32,10 @@ export default async function UtilityBillStatsPage({
   const { year: yearParam } = await searchParams;
   const year = yearParam && yearRegex.test(yearParam) ? yearParam : currentYear();
 
-  const totalTrend = await getUtilityBillTotalTrend(supabase, year);
+  const [totalTrend, itemTrend] = await Promise.all([
+    getUtilityBillTotalTrend(supabase, year),
+    getUtilityBillItemTrend(supabase, year),
+  ]);
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
@@ -69,6 +77,17 @@ export default async function UtilityBillStatsPage({
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <p className="mb-2 text-sm text-[var(--color-text-secondary)]">총액 추이</p>
           <TotalTrendChart data={totalTrend} />
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <p className="text-sm text-[var(--color-text-secondary)]">항목별 추이</p>
+          {itemTrend.totalActiveItemCount > TOP_CHANGED_ITEM_LIMIT && (
+            <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
+              전체 {itemTrend.totalActiveItemCount}개 항목 중 최근 3개월 변화가 큰 상위{" "}
+              {TOP_CHANGED_ITEM_LIMIT}개만 표시합니다
+            </p>
+          )}
+          <ItemTrendChart items={itemTrend.items} points={itemTrend.points} />
         </section>
       </div>
     </div>
