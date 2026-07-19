@@ -111,10 +111,9 @@ async function resolveItemId(
 
 // [F-2-4-3] 카테고리="관리비/공과금"으로 지출을 직접 입력하면 UTILITY_BILL_RECORD(source='MANUAL')도
 // 함께 생성 — 이 훅이 없으면 관리비 명세서 업로드 화면(F-2-1-2)의 "이미 수동 등록 존재 시 업로드
-// 차단"(케이스 A)이 영원히 발동하지 않는다(화면설계 §4-1, PM 확정, 지출 입력 화면(F-1-1-4)에서만
-// 적용 — 지출 수정 화면은 범위 밖). 같은 달에 이미 등록(업로드/수동 무관)이 있으면
-// UNIQUE(user_id, period) 위반으로 실패하는데, 그 경우 방금 만든 transaction을 보상 삭제하고
-// 일반 저장 실패로 처리한다(transaction_detail은 FK ON DELETE CASCADE로 함께 삭제됨).
+// 차단"(케이스 A)이 영원히 발동하지 않는다(화면설계 §4-1, PM 확정). 같은 달에 이미 등록(업로드/수동
+// 무관)이 있으면 UNIQUE(user_id, period) 위반으로 실패하는데, 그 경우 방금 만든 transaction을
+// 보상 삭제하고 일반 저장 실패로 처리한다(transaction_detail은 FK ON DELETE CASCADE로 함께 삭제됨).
 async function createManualUtilityBillRecordIfNeeded(
   supabase: SupabaseServerClient,
   userId: string,
@@ -135,6 +134,35 @@ async function createManualUtilityBillRecordIfNeeded(
     source: "MANUAL",
     transaction_id: transactionId,
   });
+
+  return !error;
+}
+
+// [F-2-4-3 후속 수정, 2026-07-19 PM 지적] 관리비/공과금으로 직접 등록한 지출(source='MANUAL')의
+// 지출일을 수정 화면에서 바꾸면, UTILITY_BILL_RECORD.period도 그 달로 맞춰 갱신해야 한다 — 이
+// 동기화가 없으면 통계/이력 화면이 최초 등록 시점의 달에 그대로 남아 실제 지출일과 어긋난다(예:
+// 오늘 날짜 기본값으로 등록한 뒤 지출일만 다른 달로 고친 경우). source='UPLOAD'(실제 명세서
+// 업로드로 등록)는 청구월이 지출일과 무관한 값이라 대상이 아니다 — 건드리지 않는다.
+async function syncManualUtilityBillPeriod(
+  supabase: SupabaseServerClient,
+  transactionId: string,
+  occurredAt: string
+): Promise<boolean> {
+  const { data: record } = await supabase
+    .from("utility_bill_record")
+    .select("id, period, source")
+    .eq("transaction_id", transactionId)
+    .maybeSingle();
+  if (!record || record.source !== "MANUAL") return true;
+
+  const newPeriod = toYearMonth(occurredAt);
+  if (newPeriod === record.period) return true;
+
+  // 이미 다른 등록(업로드/수동 무관)이 그 달을 쓰고 있으면 UNIQUE(user_id, period) 위반으로 실패.
+  const { error } = await supabase
+    .from("utility_bill_record")
+    .update({ period: newPeriod })
+    .eq("id", record.id);
 
   return !error;
 }
@@ -519,6 +547,13 @@ export async function updateExpenseAction(
     const { error: detailError } = await supabase.from("transaction_detail").insert(detailRows);
     if (detailError) return { status: "error", message: "상세항목 저장에 실패했습니다" };
 
+    if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
+      return {
+        status: "error",
+        message: "관리비 등록월이 이미 다른 명세서와 겹쳐 지출일을 반영하지 못했습니다",
+      };
+    }
+
     // 날짜를 다른 달로 옮긴 경우 이전/이후 두 기간 캐시 모두 무효화(같으면 한 번만).
     const newPeriod = toYearMonth(occurredAt);
     await invalidateItemTop10Cache(user.id, previousPeriod);
@@ -562,6 +597,13 @@ export async function updateExpenseAction(
 
     // 상세모드 → 직접입력 모드로 전환한 경우 남아있던 상세행 정리.
     await supabase.from("transaction_detail").delete().eq("transaction_id", id);
+
+    if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
+      return {
+        status: "error",
+        message: "관리비 등록월이 이미 다른 명세서와 겹쳐 지출일을 반영하지 못했습니다",
+      };
+    }
 
     // 상세모드였다가 직접입력으로 바뀐 경우 이전 기간의 item_top10 캐시가 낡은 값을 들고 있을 수
     // 있어 무효화(원래도 직접입력이었다면 캐시에 항목 자체가 없어 DEL이 그냥 no-op).
