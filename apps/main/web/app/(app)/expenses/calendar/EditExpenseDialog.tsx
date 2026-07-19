@@ -19,9 +19,10 @@ type TransactionRow = Database["public"]["Tables"]["transaction"]["Row"];
 export type EditableTransaction = TransactionRow & {
   vendor: { name: string } | null;
   transaction_detail: TransactionDetail[];
-  // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(안내 아이콘용) — transaction_id가
-  // UNIQUE라 supabase-js가 1:1 관계로 추론해 배열이 아니라 단일 객체/null로 내려온다.
-  utility_bill_record: { id: string } | null;
+  // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(안내 아이콘용, source='UPLOAD'인
+  // 경우만) — transaction_id가 UNIQUE라 supabase-js가 1:1 관계로 추론해 배열이 아니라 단일
+  // 객체/null로 내려온다. source='MANUAL'(F-2-4-3 훅)은 항목별 원본 데이터가 없어 대상이 아니다.
+  utility_bill_record: { id: string; source: string } | null;
 };
 
 // F-1-10-2: 캘린더 날짜 셀에서 기존 지출을 클릭했을 때 뜨는 수정 레이어 팝업 — /expenses/[id]/edit
@@ -47,7 +48,7 @@ export function EditExpenseDialog({
   const [showUtilityBillInfo, setShowUtilityBillInfo] = useState(false);
   const unitNameById = new Map(units.map((u) => [u.id, u.name]));
   const formValues = transaction ? buildFormValuesFromTransaction(transaction, unitNameById) : null;
-  const isUtilityBill = transaction?.utility_bill_record != null;
+  const isUtilityBill = transaction?.utility_bill_record?.source === "UPLOAD";
 
   return (
     <Dialog.Root open={transaction !== null} onOpenChange={onOpenChange}>

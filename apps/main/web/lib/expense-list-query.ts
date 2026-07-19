@@ -11,7 +11,7 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient
 // 쿼리 로직 — 기기별 pageSize/커서 페이지네이션이 생기면서 두 곳에서 동일한 필터 적용 코드가
 // 중복되지 않도록 여기에만 둔다.
 const SELECT_COLUMNS =
-  "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind, subtype), transaction_detail(count), utility_bill_record(id)";
+  "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind, subtype), transaction_detail(count), utility_bill_record(id, source)";
 
 export type ExpenseListRow = Database["public"]["Tables"]["transaction"]["Row"] & {
   category: Pick<Database["public"]["Tables"]["category"]["Row"], "name" | "icon"> | null;
@@ -21,9 +21,11 @@ export type ExpenseListRow = Database["public"]["Tables"]["transaction"]["Row"] 
     "display_name" | "type" | "card_kind" | "subtype"
   > | null;
   transaction_detail: { count: number }[];
-  // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(목록 배지용) — transaction_id가
-  // UNIQUE라 supabase-js가 1:1 관계로 추론해 배열이 아니라 단일 객체/null로 내려온다.
-  utility_bill_record: { id: string } | null;
+  // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(목록 배지용, source='UPLOAD'인
+  // 경우만) — transaction_id가 UNIQUE라 supabase-js가 1:1 관계로 추론해 배열이 아니라 단일
+  // 객체/null로 내려온다. source='MANUAL'(F-2-4-3 훅으로 생성)은 항목별 원본 데이터 자체가
+  // 없어 배지 대상이 아니다.
+  utility_bill_record: { id: string; source: string } | null;
 };
 
 export type ExpenseListFilters = {

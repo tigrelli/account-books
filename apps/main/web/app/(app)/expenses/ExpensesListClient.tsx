@@ -59,7 +59,7 @@ async function fetchCursorPage(
 function ExpenseRow({ tx, editHref }: { tx: ExpenseListRow; editHref: string }) {
   const paymentMethod = tx.payment_method;
   const detailCount = tx.transaction_detail?.[0]?.count ?? 0;
-  const isUtilityBill = tx.utility_bill_record !== null;
+  const isUtilityBill = tx.utility_bill_record?.source === "UPLOAD";
 
   return (
     <Link
