@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Json } from "@account-books/types";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
+import { toYearMonth } from "@account-books/utils";
 import { createUploadUrlSchema, type CreateUploadUrlInput } from "@/lib/utility-bill-schemas";
 import { createOCRProvider } from "@/lib/ocr";
 import {
@@ -358,6 +359,12 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
     }
   }
 
+  // [2026-07-19 PM 요청] 청구월(OCR 추출, extraction.period)과 사용자가 확정한 지출일의 달이
+  // 다르면(예: 3월분 명세서를 4월 26일 지출로 등록) 비고에 청구월을 남겨 나중에 봐도 구분되게
+  // 한다 — 확인 화면엔 별도 비고 입력란이 없어 사용자 값과 충돌할 일이 없다.
+  const billedMonth = toYearMonth(occurredAtDate) !== extraction.period ? extraction.period : null;
+  const memo = billedMonth ? `${Number(billedMonth.split("-")[1])}월` : null;
+
   const { data: tx, error: txErr } = await supabase
     .from("transaction")
     .insert({
@@ -369,6 +376,7 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
       amount: extraction.total,
       has_detail: false,
       occurred_at: occurredAtDate,
+      memo,
       raw_payload: extraction as unknown as Json,
     })
     .select("id")
