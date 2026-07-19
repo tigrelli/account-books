@@ -520,3 +520,30 @@
 | 3   | 항목 선정 → 저장 → 확인 화면 → 최종 저장 | "소독비"만 해제 후 저장 → 결제수단 선택 팝업 확인 → 확인 화면 → 저장 → 성공 팝업 확인 | 확인 화면에 "소독비"는 없고 나머지 항목은 있음, `/expenses`에 "관리사무소" 지출로 정상 반영                                          |
 
 > 실행: `pnpm test:e2e`(`supabase start` + `OCR_PROVIDER=fixture`로 자동 기동되는 `pnpm dev` 필요). 1/1 통과, typecheck/lint 통과.
+
+---
+
+## T-2-3 — 통계 화면 단위테스트 (F-2-3-1~3-3 커버)
+
+> 2026-07-19 구현. `lib/utility-bill-stats-queries.ts`의 4개 집계 함수(`getUtilityBillTotalTrend`, `getUtilityBillItemTrend`, `getUtilityBillChangeRate`, `getUtilityBillLatestItemBreakdown`)는 supabase 클라이언트를 파라미터로 받는 순수 함수라, `stats-cache.test.ts`와 동일하게 `from(table)` 체이닝만 흉내낸 가벼운 스텁으로 테스트(함수당 테이블 조회가 1회뿐이라 `utility-bill-actions.test.ts`처럼 테이블별 큐는 불필요). "이번 달/전월" 기준 함수(`getUtilityBillChangeRate`, `getUtilityBillLatestItemBreakdown`)와 "올해/미래 연도" 분기(`monthsToShow`)는 `vi.useFakeTimers()`/`vi.setSystemTime()`으로 기준일을 고정해 검증 — 이 레포에서 시스템 시간을 모킹한 첫 사례.
+
+### 단위 테스트 (`__tests__/utility-bill-stats-queries.test.ts`)
+
+| #   | 시나리오                                                   | 입력                                                 | 기댓값                                                                                 |
+| --- | ---------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | `getUtilityBillTotalTrend` — 과거 연도                     | 2025년 중 2개월만 데이터 존재(UPLOAD/MANUAL 각 1건)  | 12개월 전부 반환, 미등록 달은 `{total:0, isManual:false}`, MANUAL 달은 `isManual:true` |
+| 2   | `getUtilityBillTotalTrend` — 올해/미래 연도                | 기준일 2026-07-18, 연도 파라미터 "2026"/"2027"       | 올해는 1~7월(7개월)만, 미래 연도는 빈 배열                                             |
+| 3   | `getUtilityBillItemTrend` — 활성 항목 없음                 | 활성 `utility_bill_item` 0건                         | `{items:[], points:[], totalActiveItemCount:0}`                                        |
+| 4   | `getUtilityBillItemTrend` — 값 없는 달은 null              | 항목 2개 중 1개만 특정 달에 값 존재                  | 값 있는 항목은 금액, 없는 항목/달은 `null`(0 아님)                                     |
+| 5   | `getUtilityBillItemTrend` — Top5 필터링                    | 활성 항목 6개, 그중 1개만 최근 3개월 변화폭 큼       | 상위 5개만 반환, 변화폭 큰 항목 포함 확인                                              |
+| 6   | `getUtilityBillChangeRate` — 정상 계산                     | 기준일 2026-07-18, 전월 100,000원 → 이번달 130,000원 | `changeRate: 0.3`                                                                      |
+| 7   | `getUtilityBillChangeRate` — 이번 달/전월 데이터 없음      | 전월 레코드 없음                                     | `previousTotal: null`, `changeRate: null`                                              |
+| 8   | `getUtilityBillChangeRate` — 전월 총액 0원                 | 전월 `amount: 0`                                     | `changeRate: null`(나눗셈 무의미)                                                      |
+| 9   | `getUtilityBillLatestItemBreakdown` — 이번 달 등록 없음    | 해당 청구월 `utility_bill_record` 없음               | 빈 배열                                                                                |
+| 10  | `getUtilityBillLatestItemBreakdown` — 항목별 비중 내림차순 | 항목 2개(10,000원/50,000원)                          | 금액 내림차순 정렬                                                                     |
+
+> 실행: `pnpm test`. 10/10 통과(전체 스위트 145/145 통과, 기존 회귀 없음), typecheck/lint 통과.
+
+### E2E 테스트
+
+> 화면 자체(연도 이동, 배지, 안내 문구)는 F-2-3-1~3-3 완료 시 SQL 직접 시딩 + Playwright 스크린샷으로 이미 수동 검증됨(진행현황.md 참고). 통계 화면 자체 E2E 스펙은 WBS에 별도로 없어 이번 TASK 범위 밖 — 회귀 커버리지가 필요해지면 백로그에 기록.
