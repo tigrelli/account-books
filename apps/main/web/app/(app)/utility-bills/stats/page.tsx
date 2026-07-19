@@ -60,6 +60,13 @@ export default async function UtilityBillStatsPage({
           <div className="flex shrink-0 items-center gap-2">
             {totalMismatch && <TotalMismatchAlert mismatch={totalMismatch} />}
             <Link
+              href="/utility-bills/history"
+              prefetch={false}
+              className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+            >
+              명세서 이력
+            </Link>
+            <Link
               href="/utility-bills/upload"
               prefetch={false}
               className="text-sm font-medium text-[var(--paylens-action)] hover:underline"

@@ -17,6 +17,7 @@ export const navItems: NavItem[] = [
     children: [
       { label: "명세서 업로드", href: "/utility-bills/upload" },
       { label: "명세서 통계", href: "/utility-bills/stats" },
+      { label: "명세서 이력", href: "/utility-bills/history" },
     ],
   },
   {

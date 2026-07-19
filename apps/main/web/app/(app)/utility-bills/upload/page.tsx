@@ -46,13 +46,22 @@ export default async function UtilityBillUploadPage() {
               관리비 고지서 사진을 올리면 항목별로 자동 등록됩니다
             </p>
           </div>
-          <Link
-            href="/utility-bills/stats"
-            prefetch={false}
-            className="shrink-0 text-sm font-medium text-[var(--paylens-action)] hover:underline"
-          >
-            통계 보기
-          </Link>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link
+              href="/utility-bills/history"
+              prefetch={false}
+              className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+            >
+              이력 보기
+            </Link>
+            <Link
+              href="/utility-bills/stats"
+              prefetch={false}
+              className="text-sm font-medium text-[var(--paylens-action)] hover:underline"
+            >
+              통계 보기
+            </Link>
+          </div>
         </div>
 
         <UtilityBillUploadSection recentStatus={recentStatus} />
