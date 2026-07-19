@@ -96,6 +96,7 @@ export function EditExpenseDialog({
               transactionId={transaction.id}
               initialValues={formValues.initialValues}
               initialDetailRows={formValues.initialDetailRows}
+              isUtilityBill={isUtilityBill}
               onSuccess={() => onOpenChange(false)}
               secondaryActions={
                 <DeleteExpenseButton

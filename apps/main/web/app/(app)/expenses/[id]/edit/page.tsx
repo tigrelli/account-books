@@ -90,6 +90,7 @@ export default async function EditExpensePage({
             initialValues={initialValues}
             initialDetailRows={initialDetailRows}
             listHref={listHref}
+            isUtilityBill={utilityBillRecord != null}
           />
         </section>
       </div>

@@ -17,8 +17,10 @@ export function SuccessDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-black/40" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
+        {/* ConfirmDialog와 동일한 이유로 z-index 명시(캘린더 수정 팝업 EditExpenseDialog, z-50
+            위에 중첩되어 열리는 경우가 있음 — ExpenseEntryForm의 관리비 안내 알림). */}
+        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/40" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 z-[61] w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
           <Dialog.Description className="text-sm text-[var(--color-text-primary)]">
             {message}
           </Dialog.Description>
