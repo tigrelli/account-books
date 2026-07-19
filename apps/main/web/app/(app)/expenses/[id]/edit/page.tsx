@@ -28,6 +28,7 @@ export default async function EditExpensePage({
     { data: vendors },
     { data: items },
     { data: units },
+    { data: utilityBillRecord },
   ] = await Promise.all([
     supabase
       .from("transaction")
@@ -59,6 +60,8 @@ export default async function EditExpensePage({
       .select("*")
       .or(`user_id.eq.${user.id},user_id.is.null`)
       .order("created_at", { ascending: true }),
+    // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(안내 배너용).
+    supabase.from("utility_bill_record").select("id").eq("transaction_id", id).maybeSingle(),
   ]);
 
   // RLS 조건에 안 걸리면(남의 것/삭제됨) 조회 결과가 없음 — 존재하지 않는 것과 동일하게 취급.
@@ -79,6 +82,13 @@ export default async function EditExpensePage({
             지출 내역을 수정하거나 삭제하세요
           </p>
         </div>
+
+        {utilityBillRecord && (
+          <div className="rounded-lg border border-[var(--paylens-action)] bg-[var(--paylens-action)]/5 p-3 text-sm text-[var(--color-text-primary)]">
+            이 지출은 관리비 명세서로 등록되었습니다. 금액을 수정해도 항목별 통계는 원본 그대로
+            유지됩니다.
+          </div>
+        )}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <EditExpenseFormClient
