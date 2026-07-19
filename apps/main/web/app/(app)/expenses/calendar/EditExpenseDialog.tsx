@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type { Database } from "@account-books/types";
@@ -18,6 +19,9 @@ type TransactionRow = Database["public"]["Tables"]["transaction"]["Row"];
 export type EditableTransaction = TransactionRow & {
   vendor: { name: string } | null;
   transaction_detail: TransactionDetail[];
+  // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(안내 아이콘용) — transaction_id가
+  // UNIQUE라 supabase-js가 1:1 관계로 추론해 배열이 아니라 단일 객체/null로 내려온다.
+  utility_bill_record: { id: string } | null;
 };
 
 // F-1-10-2: 캘린더 날짜 셀에서 기존 지출을 클릭했을 때 뜨는 수정 레이어 팝업 — /expenses/[id]/edit
@@ -40,8 +44,10 @@ export function EditExpenseDialog({
   items: Item[];
   units: Unit[];
 }) {
+  const [showUtilityBillInfo, setShowUtilityBillInfo] = useState(false);
   const unitNameById = new Map(units.map((u) => [u.id, u.name]));
   const formValues = transaction ? buildFormValuesFromTransaction(transaction, unitNameById) : null;
+  const isUtilityBill = transaction?.utility_bill_record != null;
 
   return (
     <Dialog.Root open={transaction !== null} onOpenChange={onOpenChange}>
@@ -54,9 +60,31 @@ export function EditExpenseDialog({
           >
             <X size={18} />
           </Dialog.Close>
-          <Dialog.Title className="mb-4 text-base font-bold text-[var(--color-text-primary)]">
-            지출 수정
-          </Dialog.Title>
+          {/* transaction.id로 key를 걸어 다른 지출로 전환될 때마다 안내 문구 펼침 상태를 초기화. */}
+          <div key={transaction?.id ?? "empty"} className="mb-4">
+            <div className="flex items-center gap-1.5">
+              <Dialog.Title className="text-base font-bold text-[var(--color-text-primary)]">
+                지출 수정
+              </Dialog.Title>
+              {isUtilityBill && (
+                <button
+                  type="button"
+                  onClick={() => setShowUtilityBillInfo((v) => !v)}
+                  aria-label="관리비 명세서 안내"
+                  aria-expanded={showUtilityBillInfo}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--paylens-action)]/10 text-xs text-[var(--paylens-action)]"
+                >
+                  ℹ️
+                </button>
+              )}
+            </div>
+            {isUtilityBill && showUtilityBillInfo && (
+              <div className="mt-2 rounded-lg border border-[var(--paylens-action)] bg-[var(--paylens-action)]/5 p-3 text-sm text-[var(--color-text-primary)]">
+                이 지출은 관리비 명세서로 등록되었습니다. 금액을 수정해도 항목별 통계는 원본 그대로
+                유지됩니다.
+              </div>
+            )}
+          </div>
           {transaction && formValues && (
             <ExpenseEntryForm
               key={transaction.id}

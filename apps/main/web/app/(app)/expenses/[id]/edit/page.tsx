@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { buildFormValuesFromTransaction } from "@/lib/expense-form-values";
 import { sanitizeExpenseListHref } from "@/lib/expense-list-href";
 import { EditExpenseFormClient } from "./EditExpenseFormClient";
+import { ExpenseEditHeader } from "./ExpenseEditHeader";
 
 export default async function EditExpensePage({
   params,
@@ -76,19 +77,7 @@ export default async function EditExpensePage({
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
       <div className="mx-auto max-w-xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">지출 수정</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            지출 내역을 수정하거나 삭제하세요
-          </p>
-        </div>
-
-        {utilityBillRecord && (
-          <div className="rounded-lg border border-[var(--paylens-action)] bg-[var(--paylens-action)]/5 p-3 text-sm text-[var(--color-text-primary)]">
-            이 지출은 관리비 명세서로 등록되었습니다. 금액을 수정해도 항목별 통계는 원본 그대로
-            유지됩니다.
-          </div>
-        )}
+        <ExpenseEditHeader isUtilityBill={utilityBillRecord != null} />
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <EditExpenseFormClient
