@@ -43,7 +43,10 @@ export default async function UtilityBillHistoryPage({
 
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
+      {/* 다른 화면(폼 위주)은 가독성을 위해 좁게 유지하지만, 이 화면은 3개월을 나란히 비교하는
+          게 핵심이라 캘린더(F-1-10-1)와 동일하게 1920px(FHD)까지는 화면 폭에 맞춰 100%로
+          차오르게 한다(PM 요청, 2026-07-19 — 3칸 비교 시 폭을 최대한 활용). */}
+      <div className="mx-auto max-w-[1920px] space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-[var(--color-text-primary)]">명세서 이력</h1>
