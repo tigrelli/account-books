@@ -59,6 +59,7 @@ async function fetchCursorPage(
 function ExpenseRow({ tx, editHref }: { tx: ExpenseListRow; editHref: string }) {
   const paymentMethod = tx.payment_method;
   const detailCount = tx.transaction_detail?.[0]?.count ?? 0;
+  const isUtilityBill = tx.utility_bill_record?.source === "UPLOAD";
 
   return (
     <Link
@@ -72,6 +73,11 @@ function ExpenseRow({ tx, editHref }: { tx: ExpenseListRow; editHref: string }) 
           {tx.category?.name ?? "-"}
           <span className="mx-1.5 text-[var(--color-text-secondary)]">·</span>
           {tx.vendor?.name ?? "-"}
+          {isUtilityBill && (
+            <span className="ml-1" title="관리비 명세서로 등록됨">
+              📄
+            </span>
+          )}
         </p>
         <p className="font-mono text-sm font-semibold text-[var(--color-text-primary)]">
           {tx.amount.toLocaleString("ko-KR")}원

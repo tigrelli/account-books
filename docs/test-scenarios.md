@@ -463,3 +463,109 @@
 | 1   | 신규 계정으로 대시보드 최초 진입 + 재방문 각각 로드 시간 측정 | 두 번 모두 5,000ms 예산 안에 완료 |
 
 > 이 테스트는 "얼마나 빠른가"의 정밀 비교가 아니라 "터무니없이 느려지지 않았는가"의 상시 감시용 — 위 ①/②의 정밀 수치 비교는 대량 시딩이 필요해 일회성 벤치마크로만 수행하고 커밋하지 않음. 실행: `pnpm test:e2e`. 1/1 통과. 전체 회귀 스위트(46개, T-5-3까지의 45개 + 이번 1개) 46/46 통과, typecheck/lint 통과. 46개 전체 병렬 실행 중 `dashboard.spec.ts` 1건이 병렬 부하로 일시 실패했으나(이전에도 반복 관찰된 동일 패턴) 단독 재실행 및 전체 재실행 모두 안정적으로 통과 — 로직 결함이 아닌 리소스 경합성 플레이키로 판단, 별도 수정 없음.
+
+---
+
+## T-2-1 — 관리비 명세서 업로드 플로우 단위테스트 (최초/재업로드-동일형식/형식변경, F-2-1-1~3 커버)
+
+> 2026-07-18 구현(2차 개발). **범위 확정(PM 확인)**: WBS는 "최초/재업로드-동일형식/형식변경" 3케이스를 요구하지만, S-2-9에서 만든 형식변경 판정 함수(`calculateFormatMatchRate`/`isSameFormat`)는 백로그 B-13 결정에 따라 실제 업로드 플로우(`checkPeriodConflictAction`/`saveUtilityBillAction`)에 아직 연동되어 있지 않다(재업로드는 형식이 같든 다르든 항상 `confirm_needed`로 동일 처리) — 그래서 "형식변경"은 판정 함수가 아니라, `saveUtilityBillAction`이 이미 실제로 하는 **라벨 기준 `UTILITY_BILL_ITEM` upsert**(기존 라벨이면 재사용, 처음 보는 라벨이면 신규 생성)로 구현해 테스트했다. 이 레포에서 `createSupabaseServerClient()`를 통째로 모킹해 server action을 단위테스트한 첫 사례(기존엔 `stats-cache.ts`처럼 supabase를 파라미터로 받는 함수만 테스트 가능했음, PM 확인 후 채택) — `from(table)` 체이닝 빌더가 테이블별로 큐잉된 응답을 순서대로 반환하는 방식.
+>
+> **부수 발견**: `actions.ts`가 값 import로 쓰는 `@/lib/utility-bill-schemas`를 처음 직접 로드하며 vitest가 `@/` 별칭을 해석 못 해 실패 확인 — 기존 테스트는 전부 `@/...` import가 `import type`이라 트랜스파일 시 제거돼 드러나지 않았던 갭. `vitest.config.ts`에 `resolve.alias`로 tsconfig의 `@/*`와 동일하게 매핑해 해결.
+
+### 단위 테스트 (`__tests__/utility-bill-actions.test.ts`)
+
+| #   | 시나리오                                                 | 입력                                                           | 기댓값                                                                                     |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | `checkPeriodConflictAction` — 기존 등록 없음             | 해당 청구월에 `utility_bill_record` 없음                       | `{ status: "none" }`(최초 업로드)                                                          |
+| 2   | `checkPeriodConflictAction` — 수동 등록 존재(케이스 A)   | 기존 레코드 `source: "MANUAL"`                                 | `{ status: "blocked" }`                                                                    |
+| 3   | `checkPeriodConflictAction` — 업로드 등록 존재(케이스 B) | 기존 레코드 `source: "UPLOAD"`                                 | `{ status: "confirm_needed" }`                                                             |
+| 4   | `saveUtilityBillAction` — 최초 업로드                    | 지출처/항목 미존재, `replaceExisting: false`                   | 성공, `vendor`/`utility_bill_item` 각 1건 신규 INSERT, `transaction` DELETE 없음           |
+| 5   | `saveUtilityBillAction` — 재업로드-동일형식              | 기존 지출처/라벨("일반관리비") 그대로, `replaceExisting: true` | 성공, 기존 `transaction` 1건 DELETE, `vendor`/`utility_bill_item` 신규 INSERT 없음(재사용) |
+| 6   | `saveUtilityBillAction` — 재업로드-형식변경              | 처음 보는 라벨("정화조오물수수료"), `replaceExisting: true`    | 성공, 기존 `transaction` DELETE + 새 라벨로 `utility_bill_item` 1건 신규 INSERT            |
+| 7   | `saveUtilityBillAction` — 카테고리 없음                  | "관리비/공과금" 카테고리 미존재                                | `{ status: "error", message: "관리비/공과금 카테고리를 찾을 수 없습니다" }`                |
+| 8   | `saveUtilityBillAction` — 필수 필드 누락                 | `paymentMethodId`/`occurredAt`/`file` 누락                     | `{ status: "error", message: "잘못된 요청입니다" }`                                        |
+| 9   | `saveUtilityBillAction` — extraction JSON 파싱 실패      | `extraction: "{ not json"`                                     | `{ status: "error", message: "잘못된 요청입니다" }`                                        |
+
+> 실행: `pnpm test`. 9/9 통과(전체 스위트 131/131 통과, 기존 회귀 없음), typecheck/lint 통과.
+
+### E2E 테스트
+
+> 미작성 당시 계획 — 실제로는 아래 T-2-2에서 `e2e/utility-bill-upload.spec.ts`로 작성됨.
+
+---
+
+## T-2-2 — 항목 선정 E2E (최초 업로드 → 선정 → 저장 전체 경로, F-2-2-1/2 커버)
+
+> 2026-07-18 구현. **OCR 비용/결정성 문제(PM 확인)**: 이 플로우는 실제 Google Vision API(유료)를 거쳐야 항목 선정 화면까지 도달하는데, E2E를 그대로 커밋하면 `pnpm test:e2e`를 돌릴 때마다 실제 API 호출이 발생한다(T-3-2의 Redis처럼 실제 외부 서비스를 타는 선례는 있으나, Vision API는 호출당 비용이 붙는 유료 API라 성격이 다름) — `lib/ocr/fixture-provider.ts`(`FixtureOCRProvider`) 신규: 실제 사진(`docs/sample/`) 레이아웃을 단순화 재현한 결정적 OCR 결과를 반환. `createOCRProvider()`(`lib/ocr/index.ts`)가 `OCR_PROVIDER=fixture` 환경변수일 때만 이 provider를 쓰고, `playwright.config.ts`의 `webServer.env`에서만 설정 — 일반 `pnpm dev`/`build`/`start`(F-2-1-x/F-2-2-x 수동 브라우저 검증에 쓴 실제 Vision API 경로)에는 영향 없음.
+>
+> `deactivateUnselectedUtilityBillItemsAction`(F-2-2-2에서 구현) 단위테스트는 구현과 같은 세션에 작성 완료(`__tests__/utility-bill-actions.test.ts`), 여기서는 E2E만 추가.
+
+### 단위 테스트 (`__tests__/utility-bill-actions.test.ts`, F-2-2-2에서 구현과 함께 작성)
+
+| #   | 시나리오                     | 입력                                                                   | 기댓값                                                       |
+| --- | ---------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1   | 선택된 라벨과 일치하는 항목  | 활성 항목 `source_labels: ["일반관리비"]`, 선택 `["일반관리비"]`       | `utility_bill_item` UPDATE 없음(비활성화 안 함)              |
+| 2   | 선택되지 않은 기존 활성 항목 | 활성 항목 `source_labels: ["정화조오물수수료"]`, 선택 `["일반관리비"]` | `UPDATE { is_active: false }` + `.in("id", ["item-2"])` 호출 |
+| 3   | 공백 차이만 있는 라벨        | 활성 항목 `source_labels: ["일반 관리비"]`, 선택 `["일반관리비"]`      | UPDATE 없음(정규화 후 동일 라벨로 판단)                      |
+| 4   | 활성 항목이 없음             | 활성 `utility_bill_item` 0건                                           | UPDATE 없음                                                  |
+
+> 실행: `pnpm test`. 4/4 통과(전체 스위트 135/135 통과, 기존 회귀 없음), typecheck/lint 통과.
+
+### E2E 테스트 (`e2e/utility-bill-upload.spec.ts`)
+
+| #   | 시나리오                                 | 경로                                                                                  | 기댓값                                                                                                                               |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | 최초 업로드 → 항목 선정 화면 진입        | 신규 계정(활성 항목 0개) → `/utility-bills/upload` → 사진 업로드                      | `/utility-bills/upload/items`로 리다이렉트, 체크박스 4개("보험료"/"소독비"/"전기료(세대)"/"수도료(세대)"), "사용량 연결됨" 배지 노출 |
+| 2   | 전체 해제 시 최소 1개 검증(F-2-2-2)      | 체크박스 전체 해제                                                                    | "최소 1개 이상 선택해주세요" 안내 + 저장 버튼 비활성화                                                                               |
+| 3   | 항목 선정 → 저장 → 확인 화면 → 최종 저장 | "소독비"만 해제 후 저장 → 결제수단 선택 팝업 확인 → 확인 화면 → 저장 → 성공 팝업 확인 | 확인 화면에 "소독비"는 없고 나머지 항목은 있음, `/expenses`에 "관리사무소" 지출로 정상 반영                                          |
+
+> 실행: `pnpm test:e2e`(`supabase start` + `OCR_PROVIDER=fixture`로 자동 기동되는 `pnpm dev` 필요). 1/1 통과, typecheck/lint 통과.
+
+---
+
+## T-2-3 — 통계 화면 단위테스트 (F-2-3-1~3-3 커버)
+
+> 2026-07-19 구현. `lib/utility-bill-stats-queries.ts`의 4개 집계 함수(`getUtilityBillTotalTrend`, `getUtilityBillItemTrend`, `getUtilityBillChangeRate`, `getUtilityBillLatestItemBreakdown`)는 supabase 클라이언트를 파라미터로 받는 순수 함수라, `stats-cache.test.ts`와 동일하게 `from(table)` 체이닝만 흉내낸 가벼운 스텁으로 테스트(함수당 테이블 조회가 1회뿐이라 `utility-bill-actions.test.ts`처럼 테이블별 큐는 불필요). "이번 달/전월" 기준 함수(`getUtilityBillChangeRate`, `getUtilityBillLatestItemBreakdown`)와 "올해/미래 연도" 분기(`monthsToShow`)는 `vi.useFakeTimers()`/`vi.setSystemTime()`으로 기준일을 고정해 검증 — 이 레포에서 시스템 시간을 모킹한 첫 사례.
+
+### 단위 테스트 (`__tests__/utility-bill-stats-queries.test.ts`)
+
+| #   | 시나리오                                                   | 입력                                                 | 기댓값                                                                                 |
+| --- | ---------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | `getUtilityBillTotalTrend` — 과거 연도                     | 2025년 중 2개월만 데이터 존재(UPLOAD/MANUAL 각 1건)  | 12개월 전부 반환, 미등록 달은 `{total:0, isManual:false}`, MANUAL 달은 `isManual:true` |
+| 2   | `getUtilityBillTotalTrend` — 올해/미래 연도                | 기준일 2026-07-18, 연도 파라미터 "2026"/"2027"       | 올해는 1~7월(7개월)만, 미래 연도는 빈 배열                                             |
+| 3   | `getUtilityBillItemTrend` — 활성 항목 없음                 | 활성 `utility_bill_item` 0건                         | `{items:[], points:[], totalActiveItemCount:0}`                                        |
+| 4   | `getUtilityBillItemTrend` — 값 없는 달은 null              | 항목 2개 중 1개만 특정 달에 값 존재                  | 값 있는 항목은 금액, 없는 항목/달은 `null`(0 아님)                                     |
+| 5   | `getUtilityBillItemTrend` — Top5 필터링                    | 활성 항목 6개, 그중 1개만 최근 3개월 변화폭 큼       | 상위 5개만 반환, 변화폭 큰 항목 포함 확인                                              |
+| 6   | `getUtilityBillChangeRate` — 정상 계산                     | 기준일 2026-07-18, 전월 100,000원 → 이번달 130,000원 | `changeRate: 0.3`                                                                      |
+| 7   | `getUtilityBillChangeRate` — 이번 달/전월 데이터 없음      | 전월 레코드 없음                                     | `previousTotal: null`, `changeRate: null`                                              |
+| 8   | `getUtilityBillChangeRate` — 전월 총액 0원                 | 전월 `amount: 0`                                     | `changeRate: null`(나눗셈 무의미)                                                      |
+| 9   | `getUtilityBillLatestItemBreakdown` — 이번 달 등록 없음    | 해당 청구월 `utility_bill_record` 없음               | 빈 배열                                                                                |
+| 10  | `getUtilityBillLatestItemBreakdown` — 항목별 비중 내림차순 | 항목 2개(10,000원/50,000원)                          | 금액 내림차순 정렬                                                                     |
+
+> 실행: `pnpm test`. 10/10 통과(전체 스위트 145/145 통과, 기존 회귀 없음), typecheck/lint 통과.
+
+### E2E 테스트
+
+> 화면 자체(연도 이동, 배지, 안내 문구)는 F-2-3-1~3-3 완료 시 SQL 직접 시딩 + Playwright 스크린샷으로 이미 수동 검증됨(진행현황.md 참고). 통계 화면 자체 E2E 스펙은 WBS에 별도로 없어 이번 TASK 범위 밖 — 회귀 커버리지가 필요해지면 백로그에 기록.
+
+> **추가(F-2-4-2, 2026-07-19)**: 같은 파일에 `getUtilityBillTotalMismatch`(총액 불일치 판별) 단위테스트 3건 추가 — ①이번 달 등록 없음 → `null` ②지정 항목 합계=실제 등록 금액 → `null`(알림 숨김) ③항목 해제 등으로 합계<실제 금액 → `{itemsTotal, officialTotal}` 반환. 전체 148/148 통과.
+
+---
+
+## T-2-4 — 관리비 전체 E2E (업로드→선정→통계→메인수정→불일치알림 확인, F-2-4-1/F-2-4-2 커버)
+
+> 2026-07-19 구현. T-2-2의 업로드→항목 선정 경로에 이어, F-2-4-1(지출 수정 안내)·F-2-4-2(통계 불일치 알림)가 실제로 맞물려 동작하는지 하나의 흐름으로 검증하는 통합 E2E. "소독비"를 해제해 지정 항목 합계와 총액(165,600원)이 의도적으로 달라지게 만든 뒤, ①통계 화면에서 불일치 알림이 최초부터 뜨는지 ②메인 지출 수정 화면에서 안내 아이콘이 펼침/접힘 동작하는지 ③금액을 실제로 수정하면 안내 팝업이 뜨고 확인해야 이동하는지 ④수정한 총액이 통계 화면 불일치 알림에 그대로 반영되는지까지 이어서 확인한다. 지정 항목 합계는 픽스처의 항목 구성(사용량표 일부 + 부가세제외항목만 지정, 소독비 제외)상 정확한 값이 아니라 팝업 문구에서 파싱해 일관성만 검증(하드코딩된 값과의 우연한 불일치로 인한 flaky 방지).
+>
+> **검증 환경 주의**: 이 세션에서는 포트 3000에 PM의 `next dev`가 `OCR_PROVIDER=fixture` 없이 이미 떠 있어, `pnpm test:e2e`를 그대로 실행하면 `playwright.config.ts`의 `reuseExistingServer`가 그 서버를 재사용해 실제 유료 Vision API가 호출될 위험이 있었다 — 임시 Playwright 설정(포트 3100, `OCR_PROVIDER=fixture`로 별도 기동한 `next start` 프로덕션 빌드를 직접 바라봄, `webServer` 없음)으로 검증 후 즉시 삭제. 일반적인 `pnpm test:e2e` 실행(포트 3000이 비어있는 경우)에는 영향 없음.
+
+### E2E 테스트 (`e2e/utility-bill-full-flow.spec.ts`)
+
+| #   | 시나리오                                 | 경로                                                                              | 기댓값                                                       |
+| --- | ---------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1   | 업로드→선정 (T-2-2와 동일)               | 신규 계정 → 사진 업로드 → "소독비" 해제 → 저장 → 결제수단 선택 → 확인 화면 → 저장 | `/expenses`에 "관리사무소" 지출로 정상 반영                  |
+| 2   | 통계 화면 최초 불일치 알림(F-2-4-2)      | `/utility-bills/stats` → "총액 불일치" 클릭                                       | 팝업에 실제 등록 금액 165,600원, 지정 항목 합계 < 165,600원  |
+| 3   | 지출 수정 안내 아이콘 펼침/접힘(F-2-4-1) | `/expenses`에서 해당 지출 클릭 → 수정 화면                                        | 안내 아이콘 노출, 클릭 시 펼침, 재클릭 시 접힘               |
+| 4   | 금액 수정 시 안내 팝업(F-2-4-1)          | 금액을 170,000원으로 수정 → "수정" 클릭                                           | 안내 팝업 노출(확인 전엔 이동 안 함), 확인 후 목록으로 이동  |
+| 5   | 통계 화면 불일치 알림 갱신(F-2-4-2)      | `/utility-bills/stats` → "총액 불일치" 클릭                                       | 실제 등록 금액이 170,000원으로 갱신, 지정 항목 합계는 그대로 |
+
+> 실행: 이 검증 세션에서는 임시 설정(위 주의사항 참고)으로 3회 반복 통과(안정성 확인) + 기존 `e2e/utility-bill-upload.spec.ts`(T-2-2)와 병렬 실행해도 회귀 없음 확인. `pnpm test` 전체 148/148·typecheck/lint 통과. `docs/2차/진행현황.md`/`scripts/test-data/T-2-4.mjs` 갱신 완료.

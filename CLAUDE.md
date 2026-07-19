@@ -147,6 +147,7 @@ account-books/
 - `packages/api-client`, `packages/auth-client` 같은 이미 폐기된 패키지명 재생성 — 대신 `packages/supabase-client` 사용.
 - 마이그레이션 없이 Supabase 대시보드에서 직접 테이블/컬럼 수정.
 - 임의로 새로운 npm 패키지/라이브러리 추가 — 기존 스택(Recharts, TanStack Query, shadcn/ui 등)으로 해결이 안 될 때만 제안하고 PM 확인 후 추가.
+- **`OCR_PROVIDER=fixture` 없이 스크립트(Playwright 등)로 관리비 명세서 업로드 플로우를 반복 호출** — 이 env는 `playwright.config.ts`의 `webServer`(`pnpm test:e2e`)에만 설정되고 `next dev` 단독 실행에는 적용되지 않아, 실제 유료 Vision API가 그대로 호출된다(2026-07-18, Claude Code가 브라우저 자동화 검증 중 실제 사진으로 3회 유료 호출한 사고 발생 — `lib/ocr/index.ts`에 콘솔 경고 추가됨). 업로드 플로우를 코드/스크립트로 검증할 땐 반드시 `pnpm test:e2e`를 쓰거나, 직접 실행하는 스크립트라면 `OCR_PROVIDER=fixture` 환경변수를 명시할 것. 실사진으로 실제 OCR 결과를 확인해야 하는 경우(설계상 의도된 경로)에만 이 규칙에서 예외.
 
 ## 현재 진행 단계
 

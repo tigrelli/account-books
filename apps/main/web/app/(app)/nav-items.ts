@@ -12,6 +12,15 @@ export const navItems: NavItem[] = [
   { label: "지출 내역", href: "/expenses" },
   { label: "예산 관리", href: "/budgets" },
   {
+    label: "관리비 명세서",
+    href: "/utility-bills/upload",
+    children: [
+      { label: "명세서 업로드", href: "/utility-bills/upload" },
+      { label: "명세서 통계", href: "/utility-bills/stats" },
+      { label: "명세서 이력", href: "/utility-bills/history" },
+    ],
+  },
+  {
     label: "설정",
     href: "/settings",
     children: [

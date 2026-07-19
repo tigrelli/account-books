@@ -8,6 +8,7 @@ import { sumDetailAmounts } from "@/lib/expense-calculations";
 import { formatPaymentMethodLabel } from "@/lib/payment-method-format";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { emptyValues, type DetailRow, type FieldValues } from "@/lib/expense-form-values";
+import { SuccessDialog } from "../_components/SuccessDialog";
 
 export type { DetailRow, FieldValues } from "@/lib/expense-form-values";
 
@@ -498,6 +499,7 @@ export function ExpenseEntryForm({
   initialDetailRows,
   onSuccess,
   secondaryActions,
+  isUtilityBill = false,
 }: {
   paymentMethods: PaymentMethod[];
   categories: Category[];
@@ -513,6 +515,10 @@ export function ExpenseEntryForm({
   // 수정 모드에서 "목록"/"삭제" 버튼을 제출 버튼과 같은 한 줄에 배치하기 위한 슬롯(PM 요청,
   // 2026-07-05) — 신규 입력 모드(저장하기)에서는 전달하지 않아 기존처럼 버튼 하나만 표시.
   secondaryActions?: React.ReactNode;
+  // [F-2-4-1 개선, 2026-07-19 PM 요청] 관리비 명세서로 등록된 트랜잭션을 수정 저장할 때, 안내
+  // 아이콘을 미리 열어보지 않은 사용자도 놓치지 않도록 "수정" 버튼 클릭 → 저장 성공 시 알림 팝업을
+  // 띄운다. 수정 모드에서만 의미가 있어(신규 등록엔 "원본"이 없음) isEditMode와 함께 체크.
+  isUtilityBill?: boolean;
 }) {
   const isEditMode = transactionId !== undefined;
   const [state, formAction, isPending] = useActionState(
@@ -534,6 +540,7 @@ export function ExpenseEntryForm({
   }
 
   const detailTotal = sumDetailAmounts(detailRows);
+  const [showUtilityBillNotice, setShowUtilityBillNotice] = useState(false);
 
   // 렌더 중 state 객체 참조 비교로 성공 시 폼 초기화(useEffect 캐스케이드 회피 — CLAUDE.md 컨벤션)
   const [prevState, setPrevState] = useState(state);
@@ -542,9 +549,16 @@ export function ExpenseEntryForm({
     if (state.status === "success") {
       setValues(emptyValues);
       setDetailRows([]);
-      // onSuccess는 보통 부모(다른 컴포넌트)의 state를 바꾸는 콜백이라, 이 렌더 안에서 바로 호출하면
-      // "다른 컴포넌트를 렌더링 중에 업데이트" 경고가 발생함 — 현재 렌더 호출스택이 끝난 뒤로 미룸.
-      if (onSuccess) queueMicrotask(onSuccess);
+      if (isEditMode && isUtilityBill) {
+        // 알림 팝업을 확인(닫기)한 뒤에야 onSuccess(페이지 이동/팝업 닫기)를 호출 —
+        // 먼저 이동/닫힘이 일어나면 이 알림도 같이 사라져 사용자가 못 볼 수 있다.
+        setShowUtilityBillNotice(true);
+      } else if (onSuccess) {
+        // onSuccess는 보통 부모(다른 컴포넌트)의 state를 바꾸는 콜백이라, 이 렌더 안에서 바로
+        // 호출하면 "다른 컴포넌트를 렌더링 중에 업데이트" 경고가 발생함 — 현재 렌더 호출스택이
+        // 끝난 뒤로 미룸.
+        queueMicrotask(onSuccess);
+      }
     }
   }
 
@@ -582,141 +596,157 @@ export function ExpenseEntryForm({
   }, [state]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-4">
-      {isEditMode && <input type="hidden" name="id" value={transactionId} />}
-      <input type="hidden" name="hasDetail" value={detailRows.length > 0 ? "true" : "false"} />
-      {state.status === "error" && (
-        <p className="text-sm font-medium text-[var(--paylens-accent)]">{state.message}</p>
-      )}
-      {state.status === "success" && (
-        <p className="text-sm font-medium text-[var(--paylens-action)]">저장되었습니다</p>
-      )}
+    <>
+      <form ref={formRef} action={formAction} className="space-y-4">
+        {isEditMode && <input type="hidden" name="id" value={transactionId} />}
+        <input type="hidden" name="hasDetail" value={detailRows.length > 0 ? "true" : "false"} />
+        {state.status === "error" && (
+          <p className="text-sm font-medium text-[var(--paylens-accent)]">{state.message}</p>
+        )}
+        {state.status === "success" && (
+          <p className="text-sm font-medium text-[var(--paylens-action)]">저장되었습니다</p>
+        )}
 
-      <div>
-        <FieldLabel>날짜</FieldLabel>
-        <input
-          name="occurredAt"
-          type="date"
-          value={values.occurredAt}
-          onChange={(e) => setValues({ ...values, occurredAt: e.target.value })}
-          className={inputClassName}
-        />
-        <FieldError messages={errors.occurredAt} />
-      </div>
-
-      <div>
-        <FieldLabel>지출분류</FieldLabel>
-        <PaymentMethodSelect
-          paymentMethods={paymentMethods}
-          value={values.paymentMethodId}
-          onChange={(v) => setValues({ ...values, paymentMethodId: v })}
-          syncToken={state}
-        />
-        <FieldError messages={errors.paymentMethodId} />
-      </div>
-
-      <div>
-        <FieldLabel>지출항목</FieldLabel>
-        <CategorySelect
-          categories={categories}
-          value={values.categoryId}
-          onChange={(v) => setValues({ ...values, categoryId: v })}
-          syncToken={state}
-        />
-        <FieldError messages={errors.categoryId} />
-      </div>
-
-      <div>
-        <FieldLabel>지출처</FieldLabel>
-        <VendorCombobox
-          vendors={vendors}
-          value={values.vendorName}
-          onChange={(v) => setValues({ ...values, vendorName: v })}
-        />
-        <FieldError messages={errors.vendorName} />
-      </div>
-
-      {detailRows.length === 0 ? (
         <div>
-          <div className="flex items-baseline justify-between">
-            <FieldLabel>금액</FieldLabel>
+          <FieldLabel>날짜</FieldLabel>
+          <input
+            name="occurredAt"
+            type="date"
+            value={values.occurredAt}
+            onChange={(e) => setValues({ ...values, occurredAt: e.target.value })}
+            className={inputClassName}
+          />
+          <FieldError messages={errors.occurredAt} />
+        </div>
+
+        <div>
+          <FieldLabel>지출분류</FieldLabel>
+          <PaymentMethodSelect
+            paymentMethods={paymentMethods}
+            value={values.paymentMethodId}
+            onChange={(v) => setValues({ ...values, paymentMethodId: v })}
+            syncToken={state}
+          />
+          <FieldError messages={errors.paymentMethodId} />
+        </div>
+
+        <div>
+          <FieldLabel>지출항목</FieldLabel>
+          <CategorySelect
+            categories={categories}
+            value={values.categoryId}
+            onChange={(v) => setValues({ ...values, categoryId: v })}
+            syncToken={state}
+          />
+          <FieldError messages={errors.categoryId} />
+        </div>
+
+        <div>
+          <FieldLabel>지출처</FieldLabel>
+          <VendorCombobox
+            vendors={vendors}
+            value={values.vendorName}
+            onChange={(v) => setValues({ ...values, vendorName: v })}
+          />
+          <FieldError messages={errors.vendorName} />
+        </div>
+
+        {detailRows.length === 0 ? (
+          <div>
+            <div className="flex items-baseline justify-between">
+              <FieldLabel>금액</FieldLabel>
+              <button
+                type="button"
+                onClick={addDetailRow}
+                className="mb-1.5 text-xs font-medium text-[var(--paylens-action)] hover:underline"
+              >
+                +상세항목
+              </button>
+            </div>
+            <AmountInput
+              id="amount-visible"
+              name="amount"
+              value={values.amount}
+              onChange={(v) => setValues({ ...values, amount: v })}
+              placeholder="0"
+              className={`${inputClassName} font-mono`}
+            />
+            <FieldError messages={errors.amount} />
+          </div>
+        ) : (
+          <div>
+            <FieldLabel>상세항목</FieldLabel>
+            <DetailItemRows
+              rows={detailRows}
+              items={items}
+              units={units}
+              onChange={setDetailRows}
+            />
+            <FieldError messages={errors.details} />
             <button
               type="button"
               onClick={addDetailRow}
-              className="mb-1.5 text-xs font-medium text-[var(--paylens-action)] hover:underline"
+              className="mt-2 text-xs font-medium text-[var(--paylens-action)] hover:underline"
             >
-              +상세항목
+              + 항목 추가
             </button>
+            <div className="mt-3">
+              <FieldLabel>금액 (상세항목 합계, 자동계산)</FieldLabel>
+              <input
+                type="text"
+                readOnly
+                value={detailTotal.toLocaleString("ko-KR")}
+                className={`${inputClassName} cursor-not-allowed bg-[var(--paylens-bg)] font-mono`}
+              />
+            </div>
           </div>
-          <AmountInput
-            id="amount-visible"
-            name="amount"
-            value={values.amount}
-            onChange={(v) => setValues({ ...values, amount: v })}
-            placeholder="0"
-            className={`${inputClassName} font-mono`}
-          />
-          <FieldError messages={errors.amount} />
-        </div>
-      ) : (
+        )}
+
         <div>
-          <FieldLabel>상세항목</FieldLabel>
-          <DetailItemRows rows={detailRows} items={items} units={units} onChange={setDetailRows} />
-          <FieldError messages={errors.details} />
-          <button
-            type="button"
-            onClick={addDetailRow}
-            className="mt-2 text-xs font-medium text-[var(--paylens-action)] hover:underline"
-          >
-            + 항목 추가
-          </button>
-          <div className="mt-3">
-            <FieldLabel>금액 (상세항목 합계, 자동계산)</FieldLabel>
-            <input
-              type="text"
-              readOnly
-              value={detailTotal.toLocaleString("ko-KR")}
-              className={`${inputClassName} cursor-not-allowed bg-[var(--paylens-bg)] font-mono`}
-            />
+          <div className="flex items-baseline justify-between">
+            <FieldLabel>비고</FieldLabel>
+            <span
+              className={`mb-1.5 text-xs ${
+                values.memo.length > MEMO_MAX_LENGTH
+                  ? "font-semibold text-[var(--paylens-accent)]"
+                  : "text-[var(--color-text-secondary)]"
+              }`}
+            >
+              {values.memo.length.toLocaleString("ko-KR")}/{MEMO_MAX_LENGTH.toLocaleString("ko-KR")}
+              자
+            </span>
           </div>
+          <textarea
+            name="memo"
+            rows={3}
+            maxLength={MEMO_MAX_LENGTH}
+            value={values.memo}
+            onChange={(e) => setValues({ ...values, memo: e.target.value })}
+            placeholder="메모를 입력해 주세요 (선택)"
+            className={`${inputClassName} h-auto resize-none py-2`}
+          />
+          <FieldError messages={errors.memo} />
         </div>
-      )}
 
-      <div>
-        <div className="flex items-baseline justify-between">
-          <FieldLabel>비고</FieldLabel>
-          <span
-            className={`mb-1.5 text-xs ${
-              values.memo.length > MEMO_MAX_LENGTH
-                ? "font-semibold text-[var(--paylens-accent)]"
-                : "text-[var(--color-text-secondary)]"
-            }`}
+        <div className="flex gap-2 border-t border-[#e2e8f0] pt-4">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="h-10 flex-1 rounded-lg bg-[var(--paylens-action)] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {values.memo.length.toLocaleString("ko-KR")}/{MEMO_MAX_LENGTH.toLocaleString("ko-KR")}자
-          </span>
+            {isPending ? "저장 중…" : isEditMode ? "수정" : "저장"}
+          </button>
+          {secondaryActions}
         </div>
-        <textarea
-          name="memo"
-          rows={3}
-          maxLength={MEMO_MAX_LENGTH}
-          value={values.memo}
-          onChange={(e) => setValues({ ...values, memo: e.target.value })}
-          placeholder="메모를 입력해 주세요 (선택)"
-          className={`${inputClassName} h-auto resize-none py-2`}
-        />
-        <FieldError messages={errors.memo} />
-      </div>
-
-      <div className="flex gap-2 border-t border-[#e2e8f0] pt-4">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-10 flex-1 rounded-lg bg-[var(--paylens-action)] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isPending ? "저장 중…" : isEditMode ? "수정" : "저장"}
-        </button>
-        {secondaryActions}
-      </div>
-    </form>
+      </form>
+      <SuccessDialog
+        open={showUtilityBillNotice}
+        onOpenChange={(open) => {
+          setShowUtilityBillNotice(open);
+          if (!open && onSuccess) queueMicrotask(onSuccess);
+        }}
+        message="이 지출은 관리비 명세서로 등록되었습니다. 금액을 수정해도 항목별 통계는 원본 그대로 유지됩니다."
+      />
+    </>
   );
 }

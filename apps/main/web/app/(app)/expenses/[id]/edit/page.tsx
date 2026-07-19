@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { buildFormValuesFromTransaction } from "@/lib/expense-form-values";
 import { sanitizeExpenseListHref } from "@/lib/expense-list-href";
 import { EditExpenseFormClient } from "./EditExpenseFormClient";
+import { ExpenseEditHeader } from "./ExpenseEditHeader";
 
 export default async function EditExpensePage({
   params,
@@ -28,6 +29,7 @@ export default async function EditExpensePage({
     { data: vendors },
     { data: items },
     { data: units },
+    { data: utilityBillRecord },
   ] = await Promise.all([
     supabase
       .from("transaction")
@@ -59,11 +61,19 @@ export default async function EditExpensePage({
       .select("*")
       .or(`user_id.eq.${user.id},user_id.is.null`)
       .order("created_at", { ascending: true }),
+    // [F-2-4-1] 관리비 명세서 업로드로 등록된 트랜잭션인지 판별(안내 배너용, source='UPLOAD'인
+    // 경우만 — source='MANUAL'은 항목별 원본 데이터가 없어 이 안내 대상이 아니다).
+    supabase
+      .from("utility_bill_record")
+      .select("id, source")
+      .eq("transaction_id", id)
+      .maybeSingle(),
   ]);
 
   // RLS 조건에 안 걸리면(남의 것/삭제됨) 조회 결과가 없음 — 존재하지 않는 것과 동일하게 취급.
   if (!transaction) redirect("/expenses");
 
+  const isUtilityBill = utilityBillRecord?.source === "UPLOAD";
   const unitNameById = new Map((units ?? []).map((u) => [u.id, u.name]));
   const { initialValues, initialDetailRows } = buildFormValuesFromTransaction(
     transaction,
@@ -73,12 +83,7 @@ export default async function EditExpensePage({
   return (
     <div className="min-h-screen bg-[var(--paylens-bg)] px-4 py-10">
       <div className="mx-auto max-w-xl space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)]">지출 수정</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            지출 내역을 수정하거나 삭제하세요
-          </p>
-        </div>
+        <ExpenseEditHeader isUtilityBill={isUtilityBill} />
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
           <EditExpenseFormClient
@@ -91,6 +96,7 @@ export default async function EditExpensePage({
             initialValues={initialValues}
             initialDetailRows={initialDetailRows}
             listHref={listHref}
+            isUtilityBill={isUtilityBill}
           />
         </section>
       </div>

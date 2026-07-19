@@ -85,7 +85,7 @@ export default async function ExpenseCalendarPage({
     supabase
       .from("transaction")
       .select(
-        "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind, subtype), transaction_detail(*)"
+        "*, category(name, icon), vendor(name), payment_method(display_name, type, card_kind, subtype), transaction_detail(*), utility_bill_record(id, source)"
       )
       .gte("occurred_at", rangeStart.toISOString())
       .lt("occurred_at", rangeEnd.toISOString())

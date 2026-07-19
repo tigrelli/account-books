@@ -24,6 +24,7 @@ export function EditExpenseFormClient({
   initialValues,
   initialDetailRows,
   listHref,
+  isUtilityBill,
 }: {
   paymentMethods: PaymentMethod[];
   categories: Category[];
@@ -34,6 +35,7 @@ export function EditExpenseFormClient({
   initialValues: FieldValues;
   initialDetailRows: DetailRow[];
   listHref: string;
+  isUtilityBill: boolean;
 }) {
   const router = useRouter();
 
@@ -47,6 +49,7 @@ export function EditExpenseFormClient({
       transactionId={transactionId}
       initialValues={initialValues}
       initialDetailRows={initialDetailRows}
+      isUtilityBill={isUtilityBill}
       onSuccess={() => router.push(listHref)}
       secondaryActions={
         <>
