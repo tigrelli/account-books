@@ -109,6 +109,36 @@ async function resolveItemId(
   return created?.id ?? null;
 }
 
+// [F-2-4-3] 카테고리="관리비/공과금"으로 지출을 직접 입력하면 UTILITY_BILL_RECORD(source='MANUAL')도
+// 함께 생성 — 이 훅이 없으면 관리비 명세서 업로드 화면(F-2-1-2)의 "이미 수동 등록 존재 시 업로드
+// 차단"(케이스 A)이 영원히 발동하지 않는다(화면설계 §4-1, PM 확정, 지출 입력 화면(F-1-1-4)에서만
+// 적용 — 지출 수정 화면은 범위 밖). 같은 달에 이미 등록(업로드/수동 무관)이 있으면
+// UNIQUE(user_id, period) 위반으로 실패하는데, 그 경우 방금 만든 transaction을 보상 삭제하고
+// 일반 저장 실패로 처리한다(transaction_detail은 FK ON DELETE CASCADE로 함께 삭제됨).
+async function createManualUtilityBillRecordIfNeeded(
+  supabase: SupabaseServerClient,
+  userId: string,
+  categoryId: string,
+  transactionId: string,
+  occurredAt: string
+): Promise<boolean> {
+  const { data: category } = await supabase
+    .from("category")
+    .select("name")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (category?.name !== "관리비/공과금") return true;
+
+  const { error } = await supabase.from("utility_bill_record").insert({
+    user_id: userId,
+    period: toYearMonth(occurredAt),
+    source: "MANUAL",
+    transaction_id: transactionId,
+  });
+
+  return !error;
+}
+
 // 이름 대소문자 무시 일치로 기존 Unit(시스템 기본+내 커스텀) 재사용, 없으면 사용자 커스텀 단위로 생성.
 // UI(ExpenseEntryForm의 신규 단위 안내)와 동일한 매칭 기준 — 대소문자만 다르면 같은 단위로 취급.
 async function resolveUnitId(
@@ -276,6 +306,18 @@ export async function addExpenseAction(
       return { status: "error", message: "상세항목 저장에 실패했습니다" };
     }
 
+    const utilityBillOk = await createManualUtilityBillRecordIfNeeded(
+      supabase,
+      user.id,
+      categoryId,
+      transaction.id,
+      occurredAt
+    );
+    if (!utilityBillOk) {
+      await supabase.from("transaction").delete().eq("id", transaction.id);
+      return { status: "error", message: "지출 저장에 실패했습니다" };
+    }
+
     await invalidateItemTop10Cache(user.id, toYearMonth(occurredAt));
 
     revalidatePath(PATH);
@@ -305,18 +347,35 @@ export async function addExpenseAction(
   const vendorId = await resolveVendorId(supabase, user.id, vendorName);
   if (!vendorId) return { status: "error", message: "지출처 등록에 실패했습니다" };
 
-  const { error: transactionError } = await supabase.from("transaction").insert({
-    user_id: user.id,
-    payment_method_id: paymentMethodId,
-    category_id: categoryId,
-    vendor_id: vendorId,
-    input_type: "MANUAL",
-    amount,
-    occurred_at: new Date(occurredAt).toISOString(),
-    memo: memo?.trim() || null,
-  });
+  const { data: transaction, error: transactionError } = await supabase
+    .from("transaction")
+    .insert({
+      user_id: user.id,
+      payment_method_id: paymentMethodId,
+      category_id: categoryId,
+      vendor_id: vendorId,
+      input_type: "MANUAL",
+      amount,
+      occurred_at: new Date(occurredAt).toISOString(),
+      memo: memo?.trim() || null,
+    })
+    .select("id")
+    .single();
 
-  if (transactionError) return { status: "error", message: "지출 저장에 실패했습니다" };
+  if (transactionError || !transaction)
+    return { status: "error", message: "지출 저장에 실패했습니다" };
+
+  const utilityBillOk = await createManualUtilityBillRecordIfNeeded(
+    supabase,
+    user.id,
+    categoryId,
+    transaction.id,
+    occurredAt
+  );
+  if (!utilityBillOk) {
+    await supabase.from("transaction").delete().eq("id", transaction.id);
+    return { status: "error", message: "지출 저장에 실패했습니다" };
+  }
 
   revalidatePath(PATH);
   revalidatePath(LIST_PATH);
