@@ -10,7 +10,9 @@ import {
 
 // 각 함수가 실제로 필요로 하는 부분(from(table).select(...).조건들...)만 흉내낸 스텁 —
 // stats-cache.test.ts의 fakeSupabase와 동일 원칙. 함수당 테이블 조회가 1회뿐이라
-// utility-bill-actions.test.ts처럼 테이블별 큐를 둘 필요는 없음.
+// utility-bill-actions.test.ts처럼 테이블별 큐를 둘 필요는 없음. [2026-07-19] 월 분류가
+// period(OCR 청구월)에서 transaction.occurred_at(지출일) 기준으로 바뀌면서 필터링을 전부
+// JS 쪽에서 하도록 변경돼, 이 스텁은 조건 없이 항상 같은 데이터를 반환해도 충분하다.
 type SupabaseStub = Parameters<typeof getUtilityBillTotalTrend>[0];
 
 function fakeSupabase(responses: Record<string, unknown>): SupabaseStub {
@@ -30,20 +32,61 @@ function fakeSupabase(responses: Record<string, unknown>): SupabaseStub {
 }
 
 describe("getUtilityBillTotalTrend", () => {
-  it("과거 연도는 12개월 전부 반환하고, 미등록 달은 0원/isManual=false로 채운다", async () => {
+  it("과거 연도는 12개월 전부 반환하고, 미등록 달은 0원/isManual=false로 채운다(지출일 기준 분류)", async () => {
     const supabase = fakeSupabase({
       utility_bill_record: [
-        { period: "2025-03", source: "UPLOAD", transaction: { amount: 50000 } },
-        { period: "2025-07", source: "MANUAL", transaction: { amount: 30000 } },
+        {
+          period: "2025-03",
+          source: "UPLOAD",
+          transaction: { amount: 50000, occurred_at: "2025-03-20" },
+        },
+        {
+          period: "2025-07",
+          source: "MANUAL",
+          transaction: { amount: 30000, occurred_at: "2025-07-05" },
+        },
       ],
     });
 
     const result = await getUtilityBillTotalTrend(supabase, "2025");
 
     expect(result).toHaveLength(12);
-    expect(result[0]).toEqual({ period: "2025-01", total: 0, isManual: false });
-    expect(result[2]).toEqual({ period: "2025-03", total: 50000, isManual: false });
-    expect(result[6]).toEqual({ period: "2025-07", total: 30000, isManual: true });
+    expect(result[0]).toEqual({ period: "2025-01", total: 0, isManual: false, billedPeriod: null });
+    expect(result[2]).toEqual({
+      period: "2025-03",
+      total: 50000,
+      isManual: false,
+      billedPeriod: null,
+    });
+    expect(result[6]).toEqual({
+      period: "2025-07",
+      total: 30000,
+      isManual: true,
+      billedPeriod: null,
+    });
+  });
+
+  it("청구월(period)과 지출일의 달이 다르면 지출일 기준 달에 표시하고 billedPeriod로 청구월을 함께 내려준다", async () => {
+    const supabase = fakeSupabase({
+      // 5월분 명세서를 6월 지출로 등록한 경우 — 6월 자리에 표시되고 billedPeriod="2025-05".
+      utility_bill_record: [
+        {
+          period: "2025-05",
+          source: "UPLOAD",
+          transaction: { amount: 20000, occurred_at: "2025-06-10" },
+        },
+      ],
+    });
+
+    const result = await getUtilityBillTotalTrend(supabase, "2025");
+
+    expect(result[4]).toEqual({ period: "2025-05", total: 0, isManual: false, billedPeriod: null });
+    expect(result[5]).toEqual({
+      period: "2025-06",
+      total: 20000,
+      isManual: false,
+      billedPeriod: "2025-05",
+    });
   });
 
   it("올해는 이번 달까지만, 미래 연도는 빈 배열을 반환한다", async () => {
@@ -72,7 +115,7 @@ describe("getUtilityBillItemTrend", () => {
     expect(result).toEqual({ items: [], points: [], totalActiveItemCount: 0 });
   });
 
-  it("항목별 월별 금액을 채우고, 그 달에 값이 없는 항목은 0이 아니라 null로 둔다", async () => {
+  it("항목별 월별 금액을 채우고, 그 달에 값이 없는 항목은 0이 아니라 null로 둔다(지출일 기준)", async () => {
     const supabase = fakeSupabase({
       utility_bill_item: [
         { id: "item-1", name: "일반관리비" },
@@ -80,8 +123,8 @@ describe("getUtilityBillItemTrend", () => {
       ],
       utility_bill_record: [
         {
-          period: "2025-03",
           item_values: [{ item_id: "item-1", amount: 10000 }],
+          transaction: { occurred_at: "2025-03-20" },
         },
       ],
     });
@@ -99,7 +142,7 @@ describe("getUtilityBillItemTrend", () => {
     const items = Array.from({ length: 6 }, (_, i) => ({ id: `item-${i}`, name: `항목${i}` }));
     // item-5만 최근 3개월(2025-10~12) 변화폭이 크게(100→10000) 설계, 나머지는 매달 1000원 고정.
     const records = ["2025-10", "2025-11", "2025-12"].map((period, i) => ({
-      period,
+      transaction: { occurred_at: `${period}-15` },
       item_values: [
         ...items.slice(0, 5).map((item) => ({ item_id: item.id, amount: 1000 })),
         ...(i === 0 ? [{ item_id: "item-5", amount: 100 }] : []),
@@ -129,11 +172,11 @@ describe("getUtilityBillChangeRate", () => {
     vi.useRealTimers();
   });
 
-  it("이번 달/전월 총액과 증감률을 계산한다", async () => {
+  it("이번 달/전월 총액과 증감률을 계산한다(지출일 기준)", async () => {
     const supabase = fakeSupabase({
       utility_bill_record: [
-        { period: "2026-06", transaction: { amount: 100000 } },
-        { period: "2026-07", transaction: { amount: 130000 } },
+        { transaction: { amount: 100000, occurred_at: "2026-06-10" } },
+        { transaction: { amount: 130000, occurred_at: "2026-07-10" } },
       ],
     });
 
@@ -150,7 +193,7 @@ describe("getUtilityBillChangeRate", () => {
 
   it("이번 달 또는 전월 데이터가 없으면 changeRate는 null이다", async () => {
     const supabase = fakeSupabase({
-      utility_bill_record: [{ period: "2026-07", transaction: { amount: 130000 } }],
+      utility_bill_record: [{ transaction: { amount: 130000, occurred_at: "2026-07-10" } }],
     });
 
     const result = await getUtilityBillChangeRate(supabase);
@@ -162,8 +205,8 @@ describe("getUtilityBillChangeRate", () => {
   it("전월 총액이 0이면 나눗셈이 무의미해 changeRate는 null이다", async () => {
     const supabase = fakeSupabase({
       utility_bill_record: [
-        { period: "2026-06", transaction: { amount: 0 } },
-        { period: "2026-07", transaction: { amount: 130000 } },
+        { transaction: { amount: 0, occurred_at: "2026-06-10" } },
+        { transaction: { amount: 130000, occurred_at: "2026-07-10" } },
       ],
     });
 
@@ -184,21 +227,24 @@ describe("getUtilityBillLatestItemBreakdown", () => {
   });
 
   it("이번 달 등록이 없으면 빈 배열을 반환한다", async () => {
-    const supabase = fakeSupabase({ utility_bill_record: null });
+    const supabase = fakeSupabase({ utility_bill_record: [] });
 
     const result = await getUtilityBillLatestItemBreakdown(supabase);
 
     expect(result).toEqual([]);
   });
 
-  it("이번 달 항목별 비중을 금액 내림차순으로 반환한다", async () => {
+  it("이번 달 항목별 비중을 금액 내림차순으로 반환한다(지출일 기준)", async () => {
     const supabase = fakeSupabase({
-      utility_bill_record: {
-        item_values: [
-          { item_id: "item-1", amount: 10000, item: { name: "일반관리비" } },
-          { item_id: "item-2", amount: 50000, item: { name: "전기료" } },
-        ],
-      },
+      utility_bill_record: [
+        {
+          transaction: { occurred_at: "2026-07-05" },
+          item_values: [
+            { item_id: "item-1", amount: 10000, item: { name: "일반관리비" } },
+            { item_id: "item-2", amount: 50000, item: { name: "전기료" } },
+          ],
+        },
+      ],
     });
 
     const result = await getUtilityBillLatestItemBreakdown(supabase);
@@ -221,7 +267,7 @@ describe("getUtilityBillTotalMismatch", () => {
   });
 
   it("이번 달 등록이 없으면 null을 반환한다(알림 숨김)", async () => {
-    const supabase = fakeSupabase({ utility_bill_record: null });
+    const supabase = fakeSupabase({ utility_bill_record: [] });
 
     const result = await getUtilityBillTotalMismatch(supabase);
 
@@ -230,10 +276,12 @@ describe("getUtilityBillTotalMismatch", () => {
 
   it("지정 항목 합계와 실제 등록 금액이 같으면 null을 반환한다", async () => {
     const supabase = fakeSupabase({
-      utility_bill_record: {
-        item_values: [{ amount: 100000 }, { amount: 30000 }],
-        transaction: { amount: 130000 },
-      },
+      utility_bill_record: [
+        {
+          transaction: { amount: 130000, occurred_at: "2026-07-05" },
+          item_values: [{ amount: 100000 }, { amount: 30000 }],
+        },
+      ],
     });
 
     const result = await getUtilityBillTotalMismatch(supabase);
@@ -243,10 +291,12 @@ describe("getUtilityBillTotalMismatch", () => {
 
   it("항목 해제 등으로 지정 항목 합계가 실제 등록 금액보다 작으면 불일치를 반환한다", async () => {
     const supabase = fakeSupabase({
-      utility_bill_record: {
-        item_values: [{ amount: 100000 }],
-        transaction: { amount: 130000 },
-      },
+      utility_bill_record: [
+        {
+          transaction: { amount: 130000, occurred_at: "2026-07-05" },
+          item_values: [{ amount: 100000 }],
+        },
+      ],
     });
 
     const result = await getUtilityBillTotalMismatch(supabase);
