@@ -43,19 +43,12 @@ type Stage =
       replaceExisting: boolean;
     }
   | {
-      step: "confirm-previous-payment";
-      extraction: SuccessExtraction;
-      file: File;
-      replaceExisting: boolean;
-      paymentMethodId: string;
-      displayName: string;
-    }
-  | {
       step: "select-payment";
       extraction: SuccessExtraction;
       file: File;
       replaceExisting: boolean;
       options: PaymentMethodOption[];
+      defaultPaymentMethodId: string | undefined;
     }
   | {
       step: "ready";
@@ -84,14 +77,6 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
   const [stage, setStage] = useState<Stage>({ step: "idle" });
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // ConfirmDialog의 확인/취소 버튼이 둘 다 AlertDialog.Close라 어느 쪽을 눌러도
-  // onOpenChange(false)가 같이 호출된다. "이 결제수단으로"(확인) 클릭 시 onConfirm이
-  // stage를 "ready"로 바꾼 직후 onOpenChange의 비동기 select-payment 전환이 그 위에
-  // 덮어써서, 확인을 눌렀는데도 결제수단 선택 팝업으로 넘어가는 문제가 있었다
-  // (2026-07-14 PM 실사용 중 발견). onOpenChange는 클릭 시점의 stage를 클로저로 들고
-  // 있어 onConfirm이 이미 stage를 바꿨어도 그걸 못 보고 옛 stage 기준으로 판단한다 —
-  // 확인 버튼을 눌렀다는 사실 자체를 ref로 표시해 onOpenChange가 건너뛰게 한다.
-  const paymentConfirmedRef = useRef(false);
 
   // 화면설계 §1-2 3번 — 매칭률 ≥ 50%면 바로 결제수단 확정(F-2-1-3)으로, 미만(지정 항목이
   // 하나도 없는 최초 업로드 포함)이면 항목 선정 화면(F-2-2-1)으로 보낸다.
@@ -110,26 +95,27 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
     await resolvePaymentMethod(extraction, file, replaceExisting);
   }
 
+  // [PM 결정, 2026-07-26] "직전 결제수단으로 등록할까요?" 확인 팝업 없이 항상 결제수단/
+  // 지출일 선택 팝업으로 바로 이어간다 — 대신 직전(지난달) 등록 결제수단을 선택 목록에서
+  // 기본값으로 미리 선택해둔다.
   async function resolvePaymentMethod(
     extraction: SuccessExtraction,
     file: File,
     replaceExisting: boolean
   ) {
     setStage({ step: "checking-payment", extraction, file, replaceExisting });
-    const recent = await getRecentPaymentMethodAction();
-    if (recent.found) {
-      setStage({
-        step: "confirm-previous-payment",
-        extraction,
-        file,
-        replaceExisting,
-        paymentMethodId: recent.paymentMethodId,
-        displayName: recent.displayName,
-      });
-      return;
-    }
-    const options = await getActivePaymentMethodsAction();
-    setStage({ step: "select-payment", extraction, file, replaceExisting, options });
+    const [recent, options] = await Promise.all([
+      getRecentPaymentMethodAction(),
+      getActivePaymentMethodsAction(),
+    ]);
+    setStage({
+      step: "select-payment",
+      extraction,
+      file,
+      replaceExisting,
+      options,
+      defaultPaymentMethodId: recent.found ? recent.paymentMethodId : undefined,
+    });
   }
 
   // [F-2-2-1] 항목 선정 화면(별도 페이지)에서 "선택한 항목으로 저장" 후 돌아왔을 때 —
@@ -360,48 +346,6 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         }}
       />
 
-      <ConfirmDialog
-        open={stage.step === "confirm-previous-payment"}
-        onOpenChange={(open) => {
-          if (open) return;
-          if (paymentConfirmedRef.current) {
-            paymentConfirmedRef.current = false;
-            return;
-          }
-          if (stage.step === "confirm-previous-payment") {
-            void getActivePaymentMethodsAction().then((options) =>
-              setStage({
-                step: "select-payment",
-                extraction: stage.extraction,
-                file: stage.file,
-                replaceExisting: stage.replaceExisting,
-                options,
-              })
-            );
-          }
-        }}
-        message={
-          stage.step === "confirm-previous-payment"
-            ? `직전에는 "${stage.displayName}"(으)로 등록하셨습니다.\n이 결제수단으로 등록할까요?`
-            : ""
-        }
-        confirmLabel="이 결제수단으로"
-        cancelLabel="직접 선택"
-        onConfirm={() => {
-          paymentConfirmedRef.current = true;
-          if (stage.step === "confirm-previous-payment") {
-            setStage({
-              step: "ready",
-              extraction: stage.extraction,
-              file: stage.file,
-              replaceExisting: stage.replaceExisting,
-              paymentMethodId: stage.paymentMethodId,
-              occurredAt: lastDayOfPeriod(stage.extraction.period ?? ""),
-            });
-          }
-        }}
-      />
-
       {stage.step === "select-payment" && (
         <PaymentMethodPickerDialog
           open
@@ -409,6 +353,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
             if (!open) setStage({ step: "idle" });
           }}
           paymentMethods={stage.options}
+          defaultPaymentMethodId={stage.defaultPaymentMethodId}
           defaultOccurredAt={lastDayOfPeriod(stage.extraction.period ?? "")}
           onConfirm={(paymentMethodId, occurredAt) => {
             if (stage.step === "select-payment") {
