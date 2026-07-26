@@ -209,14 +209,12 @@ export async function deactivateUnselectedUtilityBillItemsAction(
 const CATEGORY_NAME = "관리비/공과금";
 const VENDOR_NAME = "관리사무소";
 
-export type RecentPaymentMethodResult =
-  | { found: true; paymentMethodId: string; displayName: string }
-  | { found: false };
+export type RecentPaymentMethodResult = { found: true; paymentMethodId: string } | { found: false };
 
 /**
- * 직전에 등록한 관리비 명세서의 결제수단을 조회한다(F-2-1-3, PM 결정) — 있으면 "직전
- * 결제수단으로 등록할까요?" 확인 팝업에, 없으면 결제수단 직접 선택 팝업으로 이어진다.
- * 설계서에 결제수단 선택 기준이 없어 새로 정한 규칙.
+ * 직전에 등록한 관리비 명세서의 결제수단을 조회한다(F-2-1-3, PM 결정) — 결제수단/지출일
+ * 선택 팝업에서 이 결제수단을 기본 선택값으로 미리 채워둔다. 설계서에 결제수단 선택
+ * 기준이 없어 새로 정한 규칙.
  */
 export async function getRecentPaymentMethodAction(): Promise<RecentPaymentMethodResult> {
   const supabase = await createSupabaseServerClient();
@@ -240,22 +238,18 @@ export async function getRecentPaymentMethodAction(): Promise<RecentPaymentMetho
     .maybeSingle();
   if (!tx) return { found: false };
 
-  const { data: pm } = await supabase
-    .from("payment_method")
-    .select("display_name")
-    .eq("id", tx.payment_method_id)
-    .maybeSingle();
-  if (!pm) return { found: false };
-
-  return { found: true, paymentMethodId: tx.payment_method_id, displayName: pm.display_name };
+  return { found: true, paymentMethodId: tx.payment_method_id };
 }
 
 export interface PaymentMethodOption {
   id: string;
   displayName: string;
+  type: string;
+  cardKind: string | null;
+  subtype: string | null;
 }
 
-/** 직전 등록 이력이 없을 때(최초) 결제수단 직접 선택 팝업에 쓸 목록. */
+/** 결제수단/지출일 선택 팝업의 드롭다운에 쓸 활성 결제수단 목록. */
 export async function getActivePaymentMethodsAction(): Promise<PaymentMethodOption[]> {
   const supabase = await createSupabaseServerClient();
   const {
@@ -265,12 +259,18 @@ export async function getActivePaymentMethodsAction(): Promise<PaymentMethodOpti
 
   const { data } = await supabase
     .from("payment_method")
-    .select("id, display_name")
+    .select("id, display_name, type, card_kind, subtype")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 
-  return (data ?? []).map((p) => ({ id: p.id, displayName: p.display_name }));
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    displayName: p.display_name,
+    type: p.type,
+    cardKind: p.card_kind,
+    subtype: p.subtype,
+  }));
 }
 
 export type SaveUtilityBillResult = { status: "success" } | { status: "error"; message: string };
