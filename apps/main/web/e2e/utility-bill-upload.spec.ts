@@ -11,16 +11,29 @@ const testPassword = "testpass123!";
 const testName = "관리비테스트";
 const samplePhoto = path.resolve(__dirname, "./fixtures/utility-bill-sample.png");
 
+// lib/ocr/fixture-provider.ts가 청구월을 실행 시점의 "이번 달"로 생성한다 — 여기서도 동일하게
+// 계산해 기대값을 맞춘다(고정 문자열로 두면 달이 바뀌는 순간부터 깨짐).
+const currentPeriod = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
 async function signUpAndLogin(page: Page): Promise<void> {
+  const email = testEmail();
+
   await page.goto("/signup");
   await page.fill("#name", testName);
-  await page.fill("#email", testEmail());
+  await page.fill("#email", email);
   await page.fill("#password", testPassword);
   await page.fill("#confirmPassword", testPassword);
   await page.click('button[type="submit"]');
-  await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+  await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
 
-  await page.goto("/");
+  await page.click('a:has-text("로그인하기")');
+  await expect(page).toHaveURL(/\/login/);
+  await page.fill("#email", email);
+  await page.fill("#password", testPassword);
+  await page.click('button[type="submit"]');
   await expect(page).toHaveURL("/");
 }
 
@@ -59,7 +72,7 @@ test.describe("T-2-2 관리비 명세서 — 최초 업로드 → 항목 선정 
     await page.getByRole("button", { name: "확인" }).click();
 
     // 확인 화면에는 해제한 "소독비"가 빠지고 나머지 항목만 보인다.
-    await expect(page.getByText("2026-07 청구월")).toBeVisible();
+    await expect(page.getByText(`${currentPeriod()} 청구월`)).toBeVisible();
     await expect(page.getByText("소독비")).toHaveCount(0);
     await expect(page.getByText("보험료")).toBeVisible();
 

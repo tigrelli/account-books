@@ -10,15 +10,21 @@ const testPassword = "testpass123!";
 const testName = "캐시무효화테스트";
 
 async function signUpAndLogin(page: Page): Promise<void> {
+  const email = testEmail();
+
   await page.goto("/signup");
   await page.fill("#name", testName);
-  await page.fill("#email", testEmail());
+  await page.fill("#email", email);
   await page.fill("#password", testPassword);
   await page.fill("#confirmPassword", testPassword);
   await page.click('button[type="submit"]');
-  await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+  await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
 
-  await page.goto("/");
+  await page.click('a:has-text("로그인하기")');
+  await expect(page).toHaveURL(/\/login/);
+  await page.fill("#email", email);
+  await page.fill("#password", testPassword);
+  await page.click('button[type="submit"]');
   await expect(page).toHaveURL("/");
 }
 

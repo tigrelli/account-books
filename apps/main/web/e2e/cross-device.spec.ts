@@ -106,9 +106,9 @@ async function signUpAndLogin(page: Page): Promise<string> {
   await page.fill("#password", testPassword);
   await page.fill("#confirmPassword", testPassword);
   await page.click('button[type="submit"]');
-  await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
-  await page.goto("/");
-  await expect(page).toHaveURL("/");
+  await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
+
+  await loginViaUI(page, email, testPassword);
   return email;
 }
 

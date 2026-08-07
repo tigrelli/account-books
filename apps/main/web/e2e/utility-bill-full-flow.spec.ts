@@ -11,16 +11,29 @@ const testPassword = "testpass123!";
 const testName = "관리비전체플로우테스트";
 const samplePhoto = path.resolve(__dirname, "./fixtures/utility-bill-sample.png");
 
+// lib/ocr/fixture-provider.ts가 청구월을 실행 시점의 "이번 달"로 생성한다 — 여기서도 동일하게
+// 계산해 기대값을 맞춘다(고정 문자열로 두면 달이 바뀌는 순간부터 깨짐).
+const currentPeriod = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
 async function signUpAndLogin(page: Page): Promise<void> {
+  const email = testEmail();
+
   await page.goto("/signup");
   await page.fill("#name", testName);
-  await page.fill("#email", testEmail());
+  await page.fill("#email", email);
   await page.fill("#password", testPassword);
   await page.fill("#confirmPassword", testPassword);
   await page.click('button[type="submit"]');
-  await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+  await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
 
-  await page.goto("/");
+  await page.click('a:has-text("로그인하기")');
+  await expect(page).toHaveURL(/\/login/);
+  await page.fill("#email", email);
+  await page.fill("#password", testPassword);
+  await page.click('button[type="submit"]');
   await expect(page).toHaveURL("/");
 }
 
@@ -65,7 +78,7 @@ test.describe("T-2-4 관리비 전체 E2E — 업로드→선정→통계→메�
     await expect(page.getByText("결제수단과 지출일을 선택해주세요")).toBeVisible();
     await page.getByRole("button", { name: "확인" }).click();
 
-    await expect(page.getByText("2026-07 청구월")).toBeVisible();
+    await expect(page.getByText(`${currentPeriod()} 청구월`)).toBeVisible();
     await expect(page.getByText("소독비")).toHaveCount(0);
     await page.getByRole("button", { name: "저장" }).click();
     await expect(page.getByText("관리비는 말일로 지출 등록됩니다.")).toBeVisible();

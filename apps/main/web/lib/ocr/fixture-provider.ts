@@ -20,7 +20,20 @@ function word(text: string, x: number, y: number, w = 50, h = WORD_HEIGHT): OCRT
   };
 }
 
+// 청구월은 고정값이 아니라 실행 시점의 "이번 달"로 생성한다 — 통계 쪽 총액 불일치 알림
+// (getUtilityBillTotalMismatch)이 occurred_at 기준 "이번 달"만 보는데(F-2-3-1), 청구월이
+// 고정돼 있으면 실행 시점이 그 달을 벗어나는 순간부터 e2e가 항상 깨진다(2026-08-07 발견 —
+// 청구월을 2026-07로 고정해뒀다가 8월이 되자 T-2-4가 실패).
+function currentBillingPeriodDigits(): { year: string; month: string } {
+  const now = new Date();
+  return {
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, "0"),
+  };
+}
+
 function fixtureBlocks(): OCRTextBlock[] {
+  const { year, month } = currentBillingPeriodDigits();
   return [
     // 사용량별 지침표 — 전기/온수/수도/난방
     word("지침", 150, 50),
@@ -53,9 +66,9 @@ function fixtureBlocks(): OCRTextBlock[] {
     word("640", 550, 590, 40),
 
     // 총액 + 청구월
-    word("2026", 50, 800, 45),
+    word(year, 50, 800, 45),
     word("년", 100, 800, 20),
-    word("07", 130, 800, 25),
+    word(month, 130, 800, 25),
     word("월", 160, 800, 20),
     word("납기", 50, 850, 45),
     word("내", 100, 850, 20),
