@@ -5,8 +5,6 @@ const testEmail = () => `dash_${Date.now()}_${Math.random().toString(36).slice(2
 const testPassword = "testpass123!";
 const testName = "대시보드테스트";
 
-// enable_confirmations = false인 로컬 환경에서는 signUp이 즉시 세션 쿠키를 발급하므로
-// (auth.spec.ts의 "가입→로그인" 흐름과 달리) 별도 /login 단계 없이 바로 로그인 상태가 된다.
 async function signUpAndLogin(page: Page): Promise<void> {
   const email = testEmail();
 
@@ -16,9 +14,13 @@ async function signUpAndLogin(page: Page): Promise<void> {
   await page.fill("#password", testPassword);
   await page.fill("#confirmPassword", testPassword);
   await page.click('button[type="submit"]');
-  await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+  await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
 
-  await page.goto("/");
+  await page.click('a:has-text("로그인하기")');
+  await expect(page).toHaveURL(/\/login/);
+  await page.fill("#email", email);
+  await page.fill("#password", testPassword);
+  await page.click('button[type="submit"]');
   await expect(page).toHaveURL("/");
 }
 

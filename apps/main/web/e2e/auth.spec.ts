@@ -6,7 +6,7 @@ const testPassword = "testpass123!";
 const testName = "테스트유저";
 
 test.describe("회원가입", () => {
-  test("유효한 정보로 회원가입하면 이메일 안내 화면이 표시된다", async ({ page }) => {
+  test("유효한 정보로 회원가입하면 가입 완료 화면이 표시된다", async ({ page }) => {
     await page.goto("/signup");
     await page.fill("#name", testName);
     await page.fill("#email", testEmail());
@@ -14,8 +14,29 @@ test.describe("회원가입", () => {
     await page.fill("#confirmPassword", testPassword);
     await page.click('button[type="submit"]');
 
-    // enable_confirmations = false이므로 성공 화면(이메일 확인 안내)으로 이동
-    await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+    // 이메일 발신 기능이 없어 admin.createUser()로 즉시 확인 완료 상태의 계정을 만든다 —
+    // 확인 메일 발송 없이 바로 가입 완료 화면으로 이동
+    await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
+  });
+
+  test("이미 사용 중인 이메일로 가입하면 에러가 표시된다", async ({ page }) => {
+    const email = testEmail();
+
+    await page.goto("/signup");
+    await page.fill("#name", testName);
+    await page.fill("#email", email);
+    await page.fill("#password", testPassword);
+    await page.fill("#confirmPassword", testPassword);
+    await page.click('button[type="submit"]');
+    await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
+
+    await page.goto("/signup");
+    await page.fill("#name", testName);
+    await page.fill("#email", email);
+    await page.fill("#password", testPassword);
+    await page.fill("#confirmPassword", testPassword);
+    await page.click('button[type="submit"]');
+    await expect(page.getByText("이미 사용 중인 이메일입니다")).toBeVisible();
   });
 
   test("이메일 형식이 잘못되면 필드 에러가 표시된다", async ({ page }) => {
@@ -91,16 +112,12 @@ test.describe("가입 → 로그인 → 로그아웃 전체 흐름", () => {
     await page.fill("#password", testPassword);
     await page.fill("#confirmPassword", testPassword);
     await page.click('button[type="submit"]');
-    await expect(page.getByText("이메일을 확인해 주세요")).toBeVisible();
+    await expect(page.getByText("가입이 완료되었습니다")).toBeVisible();
 
-    // 2. 로그아웃 — 로컬 Supabase는 enable_confirmations = false라 signUp 시점에 이미 세션 쿠키가
-    // 발급되어 있다. "로그인" 단계를 실제로 거치려면 먼저 로그아웃해 비로그인 상태로 되돌려야 한다
-    // (로그인된 채로 /login에 가면 미들웨어가 즉시 "/"로 리다이렉트시켜 #email이 렌더링되지 않는다).
-    await page.goto("/settings");
-    await page.click('button:has-text("로그아웃")');
+    // 2. 로그인 — admin.createUser()는 세션을 발급하지 않으므로(가입 ≠ 로그인) 이 시점엔
+    // 비로그인 상태다. 성공 화면의 "로그인하기" 버튼으로 이동.
+    await page.click('a:has-text("로그인하기")');
     await expect(page).toHaveURL(/\/login/);
-
-    // 3. 로그인
     await page.fill("#email", email);
     await page.fill("#password", testPassword);
     await page.click('button[type="submit"]');

@@ -26,31 +26,22 @@ export default function SignUpPage() {
             stroke="currentColor"
             strokeWidth={2}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <h2 className="mb-2 text-lg font-bold text-[var(--color-text-primary)]">
-          이메일을 확인해 주세요
+          가입이 완료되었습니다
         </h2>
         <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
-          <span className="font-semibold text-[var(--color-text-primary)]">{state.email}</span>으로
-          인증 메일을 보냈습니다.
-          <br />
-          메일의 링크를 클릭하면 가입이 완료됩니다.
+          <span className="font-semibold text-[var(--color-text-primary)]">{state.email}</span>
+          으로 로그인해서 이용해 보세요.
         </p>
-        <p className="mt-6 text-sm text-[var(--color-text-secondary)]">
-          이미 계정이 있으신가요?{" "}
-          <Link
-            href="/login"
-            className="font-semibold text-[var(--paylens-action)] hover:underline"
-          >
-            로그인
-          </Link>
-        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[var(--paylens-action)] text-sm font-semibold text-white transition-colors hover:bg-[#0f766e] active:bg-[#0d6b63]"
+        >
+          로그인하기
+        </Link>
       </div>
     );
   }
