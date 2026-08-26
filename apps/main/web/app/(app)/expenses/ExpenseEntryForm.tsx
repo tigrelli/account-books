@@ -134,6 +134,10 @@ function AmountInput({
   );
 }
 
+// 네이티브 <select>는 Windows Chrome/Edge에서 드롭다운을 한 번 열었다 고르기만 해도 시스템 IME가
+// 알파벳(영문) 모드로 초기화되는 브라우저 동작이 있어(2026-08-26 PM 리포트 — 지출분류/지출항목을 고른
+// 뒤 지출처/비고에 한글을 이어 입력하면 매번 영문으로 바뀌어 있었음), 팝업 오버레이 방식 커스텀
+// 리스트박스로 대체해 이 네이티브 드롭다운 자체를 없앤다. 제출값은 hidden input으로 유지.
 function PaymentMethodSelect({
   paymentMethods,
   value,
@@ -145,36 +149,61 @@ function PaymentMethodSelect({
   onChange: (v: string) => void;
   syncToken: unknown;
 }) {
-  const selectRef = useRef<HTMLSelectElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selected = paymentMethods.find((p) => p.id === value);
 
-  // React 19가 폼 액션 완료 후 <select>를 네이티브 reset()하면서 controlled value와 어긋나는 문제
-  // (값은 그대로인데 화면엔 다른 옵션이 선택돼 보이는 desync)를 매 액션 결과마다 명시적으로 재동기화해 방지.
+  // React 19가 폼 액션 완료 후 hidden input을 네이티브 reset()하면서 controlled value와 어긋나는
+  // 문제(값은 그대로인데 제출 값이 빈 문자열로 남는 desync)를 매 액션 결과마다 명시적으로 재동기화해 방지.
   useEffect(() => {
-    if (selectRef.current) selectRef.current.value = value;
+    if (hiddenRef.current) hiddenRef.current.value = value;
   }, [value, syncToken]);
 
   return (
-    <select
-      ref={selectRef}
-      name="paymentMethodId"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={inputClassName}
-    >
-      <option value="" disabled>
-        지출분류 선택
-      </option>
-      {/* 2026-07-03 PM 결정: "표시명/구분" 표기로 이미 현금/카드 구분이 드러나므로 현금·카드 대분류(optgroup) 없이
-          등록순(created_at asc, 조회 쿼리 기준)으로 같은 레벨에 나열. */}
-      {paymentMethods.map((p) => (
-        <option key={p.id} value={p.id}>
-          {formatPaymentMethodLabel(p)}
-        </option>
-      ))}
-    </select>
+    <div ref={containerRef} className="relative">
+      <input type="hidden" name="paymentMethodId" ref={hiddenRef} value={value} />
+      <button
+        type="button"
+        data-focus-target="paymentMethodId"
+        onClick={() => setIsOpen((o) => !o)}
+        onBlur={(e) => {
+          if (!containerRef.current?.contains(e.relatedTarget as Node)) setIsOpen(false);
+        }}
+        className={`${inputClassName} flex items-center justify-between text-left`}
+      >
+        <span className={selected ? "" : "text-[var(--color-text-secondary)]"}>
+          {selected ? formatPaymentMethodLabel(selected) : "지출분류 선택"}
+        </span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {isOpen && (
+        // 2026-07-03 PM 결정: "표시명/구분" 표기로 이미 현금/카드 구분이 드러나므로 현금·카드 대분류
+        // 없이 등록순(created_at asc, 조회 쿼리 기준)으로 같은 레벨에 나열.
+        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
+          {paymentMethods.map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(p.id);
+                  setIsOpen(false);
+                }}
+                className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
+              >
+                {formatPaymentMethodLabel(p)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
+// PaymentMethodSelect와 동일한 이유(Windows Chrome/Edge 네이티브 select IME 초기화 회피)로
+// 커스텀 리스트박스 사용.
 function CategorySelect({
   categories,
   value,
@@ -186,31 +215,55 @@ function CategorySelect({
   onChange: (v: string) => void;
   syncToken: unknown;
 }) {
-  const selectRef = useRef<HTMLSelectElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selected = categories.find((c) => c.id === value);
 
-  // PaymentMethodSelect와 동일한 이유(React 19 액션 후 네이티브 reset desync 방지)로 재동기화.
   useEffect(() => {
-    if (selectRef.current) selectRef.current.value = value;
+    if (hiddenRef.current) hiddenRef.current.value = value;
   }, [value, syncToken]);
 
   return (
-    <select
-      ref={selectRef}
-      name="categoryId"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={inputClassName}
-    >
-      <option value="" disabled>
-        지출항목 선택
-      </option>
-      {categories.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.icon ? `${c.icon} ` : ""}
-          {c.name}
-        </option>
-      ))}
-    </select>
+    <div ref={containerRef} className="relative">
+      <input type="hidden" name="categoryId" ref={hiddenRef} value={value} />
+      <button
+        type="button"
+        data-focus-target="categoryId"
+        onClick={() => setIsOpen((o) => !o)}
+        onBlur={(e) => {
+          if (!containerRef.current?.contains(e.relatedTarget as Node)) setIsOpen(false);
+        }}
+        className={`${inputClassName} flex items-center justify-between text-left`}
+      >
+        <span className={selected ? "" : "text-[var(--color-text-secondary)]"}>
+          {selected
+            ? `${selected.icon ? `${selected.icon} ` : ""}${selected.name}`
+            : "지출항목 선택"}
+        </span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {isOpen && (
+        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
+          {categories.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(c.id);
+                  setIsOpen(false);
+                }}
+                className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
+              >
+                {c.icon ? `${c.icon} ` : ""}
+                {c.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -240,6 +293,7 @@ function VendorCombobox({
         name="vendorName"
         type="text"
         autoComplete="off"
+        lang="ko"
         placeholder="지출처 입력 (예: 이마트)"
         value={value}
         onChange={(e) => {
@@ -296,6 +350,7 @@ function ItemCombobox({
         name="detailItemText"
         type="text"
         autoComplete="off"
+        lang="ko"
         placeholder="품목명 (예: 양파)"
         value={value}
         onChange={(e) => {
@@ -594,15 +649,17 @@ export function ExpenseEntryForm({
     const firstErrorField = fieldOrder.find((field) => state.errors[field]?.length);
     if (!firstErrorField) return;
 
-    // amount는 실제 제출값을 담는 input이 name="amount" hidden이라 포커스가 안 되므로 화면에 보이는
-    // 짝(id="amount-visible")을 대신 타겟팅, details는 필드별이 아니라 배열 전체 에러라 상세항목
-    // 섹션의 첫 번째 행 품목명 입력으로 이동.
+    // amount/paymentMethodId/categoryId는 실제 제출값을 담는 input이 hidden이라 포커스가 안 되므로
+    // 화면에 보이는 짝(각각 id="amount-visible", data-focus-target)을 대신 타겟팅. details는 필드별이
+    // 아니라 배열 전체 에러라 상세항목 섹션의 첫 번째 행 품목명 입력으로 이동.
     const selector =
       firstErrorField === "amount"
         ? "#amount-visible"
         : firstErrorField === "details"
           ? '[name="detailItemText"]'
-          : `[name="${firstErrorField}"]`;
+          : firstErrorField === "paymentMethodId" || firstErrorField === "categoryId"
+            ? `[data-focus-target="${firstErrorField}"]`
+            : `[name="${firstErrorField}"]`;
     formRef.current.querySelector<HTMLElement>(selector)?.focus();
   }, [state]);
 
@@ -729,6 +786,7 @@ export function ExpenseEntryForm({
           </div>
           <textarea
             name="memo"
+            lang="ko"
             rows={3}
             maxLength={MEMO_MAX_LENGTH}
             value={values.memo}

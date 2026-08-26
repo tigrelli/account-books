@@ -8,6 +8,24 @@ const testEmail = () =>
 const testPassword = "testpass123!";
 const testName = "예산테스트";
 
+// 지출분류/지출항목은 네이티브 <select>가 아니라 커스텀 리스트박스(버튼 + ul)다 —
+// Windows Chrome/Edge에서 select 드롭다운을 열었다 고르기만 해도 IME가 영문으로 초기화되는
+// 문제를 피하려고 ExpenseEntryForm.tsx에서 교체함(2026-08-26). option은 index(0-base, 실제
+// 항목 기준 — 자리표시자 항목이 없어 기존 select의 index 1과 대응)나 표시 텍스트로 고른다.
+async function selectFromDropdown(
+  page: Page,
+  field: "paymentMethodId" | "categoryId",
+  option: number | string
+): Promise<void> {
+  await page.click(`[data-focus-target="${field}"]`);
+  const list = page.locator(`[data-focus-target="${field}"] + ul`);
+  if (typeof option === "number") {
+    await list.locator("button").nth(option).click();
+  } else {
+    await list.getByRole("button", { name: option }).click();
+  }
+}
+
 async function signUpAndLogin(page: Page): Promise<void> {
   const email = testEmail();
 
@@ -47,8 +65,8 @@ test.describe("F-1-7-1~2 예산 설정 + 소진율 게이지", () => {
 
     // 방금 예산을 설정한 카테고리에 지출 25,000원 등록 → 50,000원 한도의 50%.
     await page.goto("/expenses/create");
-    await page.selectOption('select[name="paymentMethodId"]', { index: 1 });
-    await page.selectOption('select[name="categoryId"]', { label: categoryName });
+    await selectFromDropdown(page, "paymentMethodId", 0);
+    await selectFromDropdown(page, "categoryId", categoryName);
     await page.fill('input[name="vendorName"]', "예산테스트마트");
     await page.fill('input[placeholder="0"]', "25000");
     await page.click('button[type="submit"]');

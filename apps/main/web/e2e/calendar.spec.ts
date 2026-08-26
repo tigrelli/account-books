@@ -4,6 +4,24 @@ const testEmail = () => `cal_${Date.now()}_${Math.random().toString(36).slice(2,
 const testPassword = "testpass123!";
 const testName = "캘린더테스트";
 
+// 지출분류/지출항목은 네이티브 <select>가 아니라 커스텀 리스트박스(버튼 + ul)다 —
+// Windows Chrome/Edge에서 select 드롭다운을 열었다 고르기만 해도 IME가 영문으로 초기화되는
+// 문제를 피하려고 ExpenseEntryForm.tsx에서 교체함(2026-08-26). option은 index(0-base, 실제
+// 항목 기준 — 자리표시자 항목이 없어 기존 select의 index 1과 대응)나 표시 텍스트로 고른다.
+async function selectFromDropdown(
+  page: Page,
+  field: "paymentMethodId" | "categoryId",
+  option: number | string
+): Promise<void> {
+  await page.click(`[data-focus-target="${field}"]`);
+  const list = page.locator(`[data-focus-target="${field}"] + ul`);
+  if (typeof option === "number") {
+    await list.locator("button").nth(option).click();
+  } else {
+    await list.getByRole("button", { name: option }).click();
+  }
+}
+
 async function signUpAndLogin(page: Page): Promise<void> {
   const email = testEmail();
 
@@ -82,8 +100,20 @@ test.describe("지출 캘린더 — 빠른 입력 팝업", () => {
     await page.locator(`button[aria-label="${key} 지출 빠른 입력"]`).click({ force: true });
     await expect(page.getByText(`${key} 지출 입력`)).toBeVisible();
 
-    await page.locator('select[name="paymentMethodId"]').last().selectOption({ index: 1 });
-    await page.locator('select[name="categoryId"]').last().selectOption({ index: 1 });
+    await page.locator('[data-focus-target="paymentMethodId"]').last().click();
+    await page
+      .locator('[data-focus-target="paymentMethodId"] + ul')
+      .last()
+      .locator("button")
+      .nth(0)
+      .click();
+    await page.locator('[data-focus-target="categoryId"]').last().click();
+    await page
+      .locator('[data-focus-target="categoryId"] + ul')
+      .last()
+      .locator("button")
+      .nth(0)
+      .click();
     await page.locator('input[name="vendorName"]').last().fill("빠른입력테스트마트");
     await page.locator('input[placeholder="0"]').last().fill("7700");
     await page.locator('button[type="submit"]:has-text("저장")').last().click();
@@ -98,8 +128,8 @@ test.describe("지출 캘린더 — 빠른 입력 팝업", () => {
 test.describe("지출 캘린더 — 수정/삭제 팝업", () => {
   async function addTodayExpense(page: Page, vendorName: string, amount: string): Promise<void> {
     await page.goto("/expenses/create");
-    await page.selectOption('select[name="paymentMethodId"]', { index: 1 });
-    await page.selectOption('select[name="categoryId"]', { index: 1 });
+    await selectFromDropdown(page, "paymentMethodId", 0);
+    await selectFromDropdown(page, "categoryId", 0);
     await page.fill('input[name="vendorName"]', vendorName);
     await page.fill('input[placeholder="0"]', amount);
     await page.click('button[type="submit"]');

@@ -28,6 +28,24 @@ async function signUpAndLogin(page: Page): Promise<void> {
   await expect(page).toHaveURL("/");
 }
 
+// 지출분류/지출항목은 네이티브 <select>가 아니라 커스텀 리스트박스(버튼 + ul)다 —
+// Windows Chrome/Edge에서 select 드롭다운을 열었다 고르기만 해도 IME가 영문으로 초기화되는
+// 문제를 피하려고 ExpenseEntryForm.tsx에서 교체함(2026-08-26). 목록엔 자리표시자 항목이 없어
+// 0-base index가 옛 select의 (index - 1)에 대응한다.
+async function selectFromDropdown(
+  page: Page,
+  field: "paymentMethodId" | "categoryId",
+  option: number | string
+): Promise<void> {
+  await page.click(`[data-focus-target="${field}"]`);
+  const list = page.locator(`[data-focus-target="${field}"] + ul`);
+  if (typeof option === "number") {
+    await list.locator("button").nth(option).click();
+  } else {
+    await list.getByRole("button", { name: option }).click();
+  }
+}
+
 async function submitExpense(
   page: Page,
   categoryOptionIndex: number,
@@ -35,10 +53,12 @@ async function submitExpense(
   amount: string
 ): Promise<string> {
   await page.goto("/expenses/create");
-  await page.selectOption('select[name="paymentMethodId"]', { index: 1 });
-  const categorySelect = page.locator('select[name="categoryId"]');
-  await categorySelect.selectOption({ index: categoryOptionIndex });
-  const categoryLabel = await categorySelect.locator("option").nth(categoryOptionIndex).innerText();
+  await selectFromDropdown(page, "paymentMethodId", 0);
+  const categoryIndex = categoryOptionIndex - 1;
+  const categoryList = page.locator('[data-focus-target="categoryId"] + ul');
+  await page.click('[data-focus-target="categoryId"]');
+  const categoryLabel = await categoryList.locator("button").nth(categoryIndex).innerText();
+  await categoryList.locator("button").nth(categoryIndex).click();
   await page.fill('input[name="vendorName"]', vendorName);
   await page.fill('input[placeholder="0"]', amount);
   await page.click('button[type="submit"]');

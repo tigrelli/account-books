@@ -27,10 +27,28 @@ async function signUpAndLogin(page: Page): Promise<void> {
   await expect(page).toHaveURL("/");
 }
 
+// 지출분류/지출항목은 네이티브 <select>가 아니라 커스텀 리스트박스(버튼 + ul)다 —
+// Windows Chrome/Edge에서 select 드롭다운을 열었다 고르기만 해도 IME가 영문으로 초기화되는
+// 문제를 피하려고 ExpenseEntryForm.tsx에서 교체함(2026-08-26). option은 index(0-base, 실제
+// 항목 기준 — 자리표시자 항목이 없어 기존 select의 index 1과 대응)나 표시 텍스트로 고른다.
+async function selectFromDropdown(
+  page: Page,
+  field: "paymentMethodId" | "categoryId",
+  option: number | string
+): Promise<void> {
+  await page.click(`[data-focus-target="${field}"]`);
+  const list = page.locator(`[data-focus-target="${field}"] + ul`);
+  if (typeof option === "number") {
+    await list.locator("button").nth(option).click();
+  } else {
+    await list.getByRole("button", { name: option }).click();
+  }
+}
+
 async function submitSimpleExpense(page: Page, vendorName: string, amount: string): Promise<void> {
   await page.goto("/expenses/create");
-  await page.selectOption('select[name="paymentMethodId"]', { index: 1 });
-  await page.selectOption('select[name="categoryId"]', { index: 1 });
+  await selectFromDropdown(page, "paymentMethodId", 0);
+  await selectFromDropdown(page, "categoryId", 0);
   await page.fill('input[name="vendorName"]', vendorName);
   await page.fill('input[placeholder="0"]', amount);
   await page.click('button[type="submit"]');
@@ -45,8 +63,8 @@ async function submitDetailExpense(
   amount: string
 ): Promise<void> {
   await page.goto("/expenses/create");
-  await page.selectOption('select[name="paymentMethodId"]', { index: 1 });
-  await page.selectOption('select[name="categoryId"]', { index: 1 });
+  await selectFromDropdown(page, "paymentMethodId", 0);
+  await selectFromDropdown(page, "categoryId", 0);
   await page.fill('input[name="vendorName"]', vendorName);
   await page.click('button:has-text("+상세항목")');
   await page.fill('input[name="detailItemText"]', itemName);
@@ -141,19 +159,16 @@ test.describe("F-3-1-1 — 지출분류별(현금/카드) 정확도", () => {
 
     // 수동 계산: 현금 15,000 + 카드 5,000 = 총 20,000 → 현금 75%, 카드 25%
     await page.goto("/expenses/create");
-    const cardValue = await page
-      .locator('select[name="paymentMethodId"] option', { hasText: "국민카드" })
-      .getAttribute("value");
-    await page.selectOption('select[name="paymentMethodId"]', { index: 1 }); // 현금
-    await page.selectOption('select[name="categoryId"]', { index: 1 });
+    await selectFromDropdown(page, "paymentMethodId", 0); // 현금
+    await selectFromDropdown(page, "categoryId", 0);
     await page.fill('input[name="vendorName"]', "현금가게");
     await page.fill('input[placeholder="0"]', "15000");
     await page.click('button[type="submit"]');
     await expect(page.getByText("저장되었습니다")).toBeVisible();
 
     await page.goto("/expenses/create");
-    await page.selectOption('select[name="paymentMethodId"]', cardValue!);
-    await page.selectOption('select[name="categoryId"]', { index: 1 });
+    await selectFromDropdown(page, "paymentMethodId", "국민카드");
+    await selectFromDropdown(page, "categoryId", 0);
     await page.fill('input[name="vendorName"]', "카드가게");
     await page.fill('input[placeholder="0"]', "5000");
     await page.click('button[type="submit"]');
