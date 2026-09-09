@@ -707,6 +707,10 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      replace_transaction_detail: {
+        Args: { p_details: Json; p_transaction_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;
