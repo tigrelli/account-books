@@ -542,9 +542,12 @@ export async function updateExpenseAction(
     if (transactionError) return { status: "error", message: "지출 수정에 실패했습니다" };
 
     // 기존 상세항목은 통째로 지우고 새로 넣는 방식(부분 diff 없음) — 행 개수가 적어 실용적으로 충분.
-    await supabase.from("transaction_detail").delete().eq("transaction_id", id);
-
-    const { error: detailError } = await supabase.from("transaction_detail").insert(detailRows);
+    // delete와 insert를 별도 요청으로 보내면 원자성이 없어(중복 제출 등으로 요청이 겹칠 때) 상세항목이
+    // 중복 저장될 수 있어, DB 함수 하나의 호출(=하나의 트랜잭션)로 묶는다.
+    const { error: detailError } = await supabase.rpc("replace_transaction_detail", {
+      p_transaction_id: id,
+      p_details: detailRows,
+    });
     if (detailError) return { status: "error", message: "상세항목 저장에 실패했습니다" };
 
     if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
@@ -595,8 +598,12 @@ export async function updateExpenseAction(
 
     if (transactionError) return { status: "error", message: "지출 수정에 실패했습니다" };
 
-    // 상세모드 → 직접입력 모드로 전환한 경우 남아있던 상세행 정리.
-    await supabase.from("transaction_detail").delete().eq("transaction_id", id);
+    // 상세모드 → 직접입력 모드로 전환한 경우 남아있던 상세행 정리(원자적 삭제 + 에러 체크).
+    const { error: detailError } = await supabase.rpc("replace_transaction_detail", {
+      p_transaction_id: id,
+      p_details: [],
+    });
+    if (detailError) return { status: "error", message: "상세항목 정리에 실패했습니다" };
 
     if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
       return {
