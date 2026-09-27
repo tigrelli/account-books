@@ -50,11 +50,21 @@ export async function getUtilityBillHistoryPanels(
   const panels = new Map<string, UtilityBillHistoryPanel>();
   for (const [month, rows] of rowsByMonth) {
     const billed = rows.find((r) => r.period !== month);
+    // 같은 달에 UPLOAD 명세서와 무관한 MANUAL 등록(예: 다른 지출처의 관리비/공과금 수동입력)이
+    // 함께 걸리면, 화면(UtilityBillItemBreakdown)엔 UPLOAD의 items만 표시되는데 total은 모든
+    // 행의 amount를 더해 MANUAL분까지 섞여 "표시된 항목 합"과 "합계"가 어긋났다(운영 확인,
+    // 2026-09-27). UPLOAD가 있는 달은 items 합으로 total을 맞추고(표시 내용과 항상 일치),
+    // MANUAL만 있는 달(항목별 내역 자체가 없음)만 기존대로 amount 합산을 유지한다.
+    const uploadRows = rows.filter((r) => r.source === "UPLOAD");
+    const isUpload = uploadRows.length > 0;
+    const items = uploadRows.flatMap((r) => r.items);
     panels.set(month, {
       period: month,
-      source: rows.some((r) => r.source === "UPLOAD") ? "UPLOAD" : "MANUAL",
-      total: rows.reduce((sum, r) => sum + r.amount, 0),
-      items: rows.flatMap((r) => r.items),
+      source: isUpload ? "UPLOAD" : "MANUAL",
+      total: isUpload
+        ? items.reduce((sum, i) => sum + i.amount, 0)
+        : rows.reduce((sum, r) => sum + r.amount, 0),
+      items,
       billedPeriod: billed ? billed.period : null,
     });
   }
