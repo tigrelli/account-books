@@ -19,6 +19,10 @@ const LIST_PATH = "/expenses";
 // 캘린더 화면(F-1-10-1)도 force-dynamic이지만, 빠른 입력 팝업(F-1-10-2)은 페이지 이동 없이
 // 같은 라우트에 머무르므로 Router Cache 무효화를 위해 명시적으로 함께 재검증.
 const CALENDAR_PATH = "/expenses/calendar";
+// 관리비 카테고리 지출은 createManualUtilityBillRecordIfNeeded/syncManualUtilityBillPeriod를 통해
+// 관리비 통계 화면(F-2-3)의 집계 대상이 된다 — 그 화면도 force-dynamic이지만 Router Cache는
+// 별도 무효화가 필요해 위 두 경로와 함께 재검증(utility-bills/actions.ts의 saveUtilityBillAction과 동일 이유).
+const UTILITY_STATS_PATH = "/utility-bills/stats";
 
 export type ExpenseActionState =
   | { status: "idle" }
@@ -351,6 +355,7 @@ export async function addExpenseAction(
     revalidatePath(PATH);
     revalidatePath(LIST_PATH);
     revalidatePath(CALENDAR_PATH);
+    revalidatePath(UTILITY_STATS_PATH);
     return { status: "success" };
   }
 
@@ -408,6 +413,7 @@ export async function addExpenseAction(
   revalidatePath(PATH);
   revalidatePath(LIST_PATH);
   revalidatePath(CALENDAR_PATH);
+  revalidatePath(UTILITY_STATS_PATH);
   return { status: "success" };
 }
 
@@ -619,6 +625,7 @@ export async function updateExpenseAction(
 
   revalidatePath(LIST_PATH);
   revalidatePath(CALENDAR_PATH);
+  revalidatePath(UTILITY_STATS_PATH);
   // F-1-10-2: 캘린더의 수정 팝업은 페이지 이동 없이 그 자리에서 닫혀야 하므로, addExpenseAction과
   // 동일하게 여기서 강제 redirect하지 않고 성공 상태만 반환 — 화면 이동이 필요한 호출부
   // (기존 /expenses/[id]/edit 페이지)는 ExpenseEntryForm의 onSuccess에서 직접 라우팅한다.
@@ -649,4 +656,5 @@ export async function deleteExpenseAction(id: string) {
 
   revalidatePath(LIST_PATH);
   revalidatePath(CALENDAR_PATH);
+  revalidatePath(UTILITY_STATS_PATH);
 }

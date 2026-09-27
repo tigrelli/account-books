@@ -475,6 +475,9 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
 
   revalidatePath("/expenses");
   revalidatePath("/utility-bills/upload");
+  // 통계 화면(F-2-3)도 이 지출을 즉시 반영해야 하는데, force-dynamic만으로는 이미 방문해
+  // Router Cache에 남아있는 이전 페이로드가 무효화되지 않는다(expenses/actions.ts와 동일 이슈).
+  revalidatePath("/utility-bills/stats");
 
   return { status: "success" };
 }
