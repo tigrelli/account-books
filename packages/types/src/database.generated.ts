@@ -501,6 +501,7 @@ export type Database = {
           transaction_id: string;
           updated_at: string;
           user_id: string;
+          vendor_id: string;
         };
         Insert: {
           created_at?: string;
@@ -511,6 +512,7 @@ export type Database = {
           transaction_id: string;
           updated_at?: string;
           user_id: string;
+          vendor_id: string;
         };
         Update: {
           created_at?: string;
@@ -521,6 +523,7 @@ export type Database = {
           transaction_id?: string;
           updated_at?: string;
           user_id?: string;
+          vendor_id?: string;
         };
         Relationships: [
           {
@@ -528,6 +531,13 @@ export type Database = {
             columns: ["transaction_id"];
             isOneToOne: true;
             referencedRelation: "transaction";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "utility_bill_record_vendor_id_fkey";
+            columns: ["vendor_id"];
+            isOneToOne: false;
+            referencedRelation: "vendor";
             referencedColumns: ["id"];
           },
         ];

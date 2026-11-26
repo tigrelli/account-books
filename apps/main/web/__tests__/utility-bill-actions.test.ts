@@ -138,6 +138,16 @@ describe("checkPeriodConflictAction", () => {
     const result = await checkPeriodConflictAction("2026-07");
     expect(result).toEqual({ status: "confirm_needed" });
   });
+
+  it("[F-2-4-5] 같은 달의 다른 지출처(예: 도시가스) 등록은 충돌로 보지 않도록 업로드 지출처로 한정해 조회한다", async () => {
+    queueTable("utility_bill_record", { data: null });
+    await checkPeriodConflictAction("2026-07");
+    expect(callLog).toContainEqual({
+      table: "utility_bill_record",
+      method: "eq",
+      args: ["vendor.name", "관리사무소"],
+    });
+  });
 });
 
 describe("saveUtilityBillAction", () => {
@@ -161,6 +171,11 @@ describe("saveUtilityBillAction", () => {
     );
     expect(storageCreateSignedUploadUrl).toHaveBeenCalledWith("user-1/2026-07.jpg");
     expect(storageUploadToSignedUrl).toHaveBeenCalled();
+    // [F-2-4-5] UNIQUE(user_id, period, vendor_id) 판정을 위해 업로드 레코드에도 지출처를 저장한다.
+    const recordInsert = callLog.find(
+      (c) => c.table === "utility_bill_record" && c.method === "insert"
+    );
+    expect(recordInsert?.args[0]).toMatchObject({ vendor_id: "vendor-1", source: "UPLOAD" });
   });
 
   it("재업로드-동일형식: 같은 라벨이 이미 있으면 UTILITY_BILL_ITEM을 새로 만들지 않고 재사용한다", async () => {
@@ -187,6 +202,12 @@ describe("saveUtilityBillAction", () => {
     expect(
       callLog.filter((c) => c.table === "utility_bill_item" && c.method === "insert")
     ).toHaveLength(0);
+    // [F-2-4-5] 같은 달의 다른 지출처 등록을 지우지 않도록 업로드 지출처 건만 찾아 삭제한다.
+    expect(callLog).toContainEqual({
+      table: "utility_bill_record",
+      method: "eq",
+      args: ["vendor_id", "vendor-1"],
+    });
   });
 
   it("재업로드-형식변경: 처음 보는 라벨이면 UTILITY_BILL_ITEM을 새로 만든다 (S-2-9 매칭률 판정 자체는 업로드 플로우에 아직 연동되지 않음 — 백로그 B-13)", async () => {

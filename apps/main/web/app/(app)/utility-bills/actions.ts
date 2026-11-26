@@ -116,7 +116,9 @@ export type ConflictCheckResult =
   | { status: "confirm_needed" }; // 케이스 B — 이미 업로드 존재, 재업로드 확인 필요
 
 /**
- * OCR로 확정된 청구월(period) 기준으로 기존 등록 여부를 확인한다(화면설계 §1-2/1-3).
+ * OCR로 확정된 청구월(period) + 업로드 지출처 기준으로 기존 등록 여부를 확인한다(화면설계 §1-2/1-3).
+ * [F-2-4-5] 같은 달에 지출처가 다른 등록(예: 도시가스)은 충돌이 아니다. 지출처 조건 없이
+ * maybeSingle()로 조회하면 같은 달 2건 이상일 때 data가 null로 와 "등록 없음"으로 오판한다.
  */
 export async function checkPeriodConflictAction(period: string): Promise<ConflictCheckResult> {
   const supabase = await createSupabaseServerClient();
@@ -127,8 +129,9 @@ export async function checkPeriodConflictAction(period: string): Promise<Conflic
 
   const { data: existing } = await supabase
     .from("utility_bill_record")
-    .select("source")
+    .select("source, vendor!inner(name)")
     .eq("period", period)
+    .eq("vendor.name", VENDOR_NAME)
     .maybeSingle();
 
   if (!existing) return { status: "none" };
@@ -354,6 +357,7 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
       .from("utility_bill_record")
       .select("transaction_id")
       .eq("period", extraction.period)
+      .eq("vendor_id", vendorId)
       .maybeSingle();
     if (existingRecord) {
       // transaction 삭제 → utility_bill_record(ON DELETE CASCADE) → utility_bill_item_value
@@ -391,6 +395,7 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
     .insert({
       user_id: user.id,
       period: extraction.period,
+      vendor_id: vendorId,
       transaction_id: tx.id,
       source: "UPLOAD",
     })
