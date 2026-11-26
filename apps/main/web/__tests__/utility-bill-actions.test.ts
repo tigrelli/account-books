@@ -109,13 +109,14 @@ function makeExtraction(overrides: Partial<UtilityBillExtraction> = {}): Utility
 
 function makeFormData(
   extraction: UtilityBillExtraction,
-  opts: { replaceExisting?: boolean } = {}
+  opts: { replaceExisting?: boolean; vendorName?: string } = {}
 ): FormData {
   const fd = new FormData();
   fd.set("extraction", JSON.stringify(extraction));
   fd.set("paymentMethodId", "pm-1");
   fd.set("occurredAt", "2026-07-31");
   fd.set("replaceExisting", opts.replaceExisting ? "true" : "false");
+  fd.set("vendorName", opts.vendorName ?? "관리사무소");
   fd.set("file", new File(["dummy"], "bill.jpg", { type: "image/jpeg" }));
   return fd;
 }
@@ -123,20 +124,30 @@ function makeFormData(
 describe("checkPeriodConflictAction", () => {
   it("기존 등록이 없으면 최초 업로드로 판정한다(none)", async () => {
     queueTable("utility_bill_record", { data: null });
-    const result = await checkPeriodConflictAction("2026-07");
+    const result = await checkPeriodConflictAction("2026-07", "관리사무소");
     expect(result).toEqual({ status: "none" });
   });
 
   it("기존 등록이 수동 입력(MANUAL)이면 업로드를 차단한다(케이스 A, blocked)", async () => {
     queueTable("utility_bill_record", { data: { source: "MANUAL" } });
-    const result = await checkPeriodConflictAction("2026-07");
+    const result = await checkPeriodConflictAction("2026-07", "관리사무소");
     expect(result).toEqual({ status: "blocked" });
   });
 
   it("기존 등록이 업로드(UPLOAD)면 재업로드 확인이 필요하다(케이스 B, confirm_needed)", async () => {
     queueTable("utility_bill_record", { data: { source: "UPLOAD" } });
-    const result = await checkPeriodConflictAction("2026-07");
+    const result = await checkPeriodConflictAction("2026-07", "관리사무소");
     expect(result).toEqual({ status: "confirm_needed" });
+  });
+
+  it("[F-2-4-5/6] 같은 달의 다른 지출처(예: 도시가스) 등록은 충돌로 보지 않도록 사용자가 고른 업로드 지출처로 한정해 조회한다", async () => {
+    queueTable("utility_bill_record", { data: null });
+    await checkPeriodConflictAction("2026-07", " 오피스텔 관리비 ");
+    expect(callLog).toContainEqual({
+      table: "utility_bill_record",
+      method: "eq",
+      args: ["vendor.name", "오피스텔 관리비"],
+    });
   });
 });
 
@@ -159,13 +170,19 @@ describe("saveUtilityBillAction", () => {
     expect(callLog.filter((c) => c.table === "transaction" && c.method === "delete")).toHaveLength(
       0
     );
-    expect(storageCreateSignedUploadUrl).toHaveBeenCalledWith("user-1/2026-07.jpg");
+    // [F-2-4-6] 같은 달 다른 지출처 업로드가 덮어쓰지 않도록 경로에 vendor_id 포함.
+    expect(storageCreateSignedUploadUrl).toHaveBeenCalledWith("user-1/2026-07_vendor-1.jpg");
     expect(storageUploadToSignedUrl).toHaveBeenCalled();
+    // [F-2-4-5] UNIQUE(user_id, period, vendor_id) 판정을 위해 업로드 레코드에도 지출처를 저장한다.
+    const recordInsert = callLog.find(
+      (c) => c.table === "utility_bill_record" && c.method === "insert"
+    );
+    expect(recordInsert?.args[0]).toMatchObject({ vendor_id: "vendor-1", source: "UPLOAD" });
   });
 
   it("재업로드-동일형식: 같은 라벨이 이미 있으면 UTILITY_BILL_ITEM을 새로 만들지 않고 재사용한다", async () => {
     queueTable("category", { data: { id: "cat-1" } });
-    queueTable("vendor", { data: { id: "vendor-1" } }); // 기존 지출처 재사용
+    queueTable("vendor", { data: { id: "vendor-1", is_active: true } }); // 기존 지출처 재사용
     queueTable(
       "utility_bill_record",
       { data: { transaction_id: "old-tx" } },
@@ -187,11 +204,17 @@ describe("saveUtilityBillAction", () => {
     expect(
       callLog.filter((c) => c.table === "utility_bill_item" && c.method === "insert")
     ).toHaveLength(0);
+    // [F-2-4-5] 같은 달의 다른 지출처 등록을 지우지 않도록 업로드 지출처 건만 찾아 삭제한다.
+    expect(callLog).toContainEqual({
+      table: "utility_bill_record",
+      method: "eq",
+      args: ["vendor_id", "vendor-1"],
+    });
   });
 
   it("재업로드-형식변경: 처음 보는 라벨이면 UTILITY_BILL_ITEM을 새로 만든다 (S-2-9 매칭률 판정 자체는 업로드 플로우에 아직 연동되지 않음 — 백로그 B-13)", async () => {
     queueTable("category", { data: { id: "cat-1" } });
-    queueTable("vendor", { data: { id: "vendor-1" } });
+    queueTable("vendor", { data: { id: "vendor-1", is_active: true } });
     queueTable(
       "utility_bill_record",
       { data: { transaction_id: "old-tx" } },
@@ -217,6 +240,57 @@ describe("saveUtilityBillAction", () => {
     expect(
       callLog.filter((c) => c.table === "utility_bill_item" && c.method === "insert")
     ).toHaveLength(1);
+  });
+
+  it("[F-2-4-6] 사용자가 고른 지출처 이름으로 지출처를 찾는다", async () => {
+    queueTable("category", { data: { id: "cat-1" } });
+    queueTable("vendor", { data: { id: "vendor-2", is_active: true } });
+    queueTable("transaction", { data: { id: "tx-1" } });
+    queueTable("utility_bill_record", { data: { id: "record-1" } });
+    queueTable("utility_bill_item", { data: { id: "item-1" } });
+
+    const result = await saveUtilityBillAction(
+      makeFormData(makeExtraction(), { vendorName: "오피스텔 관리비" })
+    );
+
+    expect(result).toEqual({ status: "success" });
+    expect(callLog).toContainEqual({
+      table: "vendor",
+      method: "eq",
+      args: ["name", "오피스텔 관리비"],
+    });
+    const recordInsert = callLog.find(
+      (c) => c.table === "utility_bill_record" && c.method === "insert"
+    );
+    expect(recordInsert?.args[0]).toMatchObject({ vendor_id: "vendor-2" });
+  });
+
+  it("[F-2-4-6] 지출처가 비어 있으면 지출 입력과 같은 문구로 거절한다", async () => {
+    const result = await saveUtilityBillAction(
+      makeFormData(makeExtraction(), { vendorName: "   " })
+    );
+
+    expect(result).toEqual({ status: "error", message: "지출처를 입력해 주세요" });
+    expect(callLog.filter((c) => c.table === "transaction")).toHaveLength(0);
+  });
+
+  it("[F-2-4-6] 같은 달·같은 지출처 등록과 겹치면 방금 만든 지출을 지우고 지출처 이름을 담은 문구를 반환한다", async () => {
+    queueTable("category", { data: { id: "cat-1" } });
+    queueTable("vendor", { data: { id: "vendor-1", is_active: true } });
+    queueTable("transaction", { data: { id: "tx-1" } }, { data: null, error: null });
+    queueTable("utility_bill_record", { data: null, error: { code: "23505" } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await saveUtilityBillAction(makeFormData(makeExtraction()));
+
+    expect(result).toEqual({
+      status: "error",
+      message: "이 달에 '관리사무소' 관리비가 이미 등록되어 있습니다",
+    });
+    expect(callLog).toContainEqual({ table: "transaction", method: "eq", args: ["id", "tx-1"] });
+    expect(callLog.filter((c) => c.table === "transaction" && c.method === "delete")).toHaveLength(
+      1
+    );
   });
 
   it("관리비/공과금 카테고리가 없으면 에러를 반환한다", async () => {

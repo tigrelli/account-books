@@ -9,6 +9,7 @@ import { formatPaymentMethodLabel } from "@/lib/payment-method-format";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { emptyValues, type DetailRow, type FieldValues } from "@/lib/expense-form-values";
 import { SuccessDialog } from "../_components/SuccessDialog";
+import { VendorCombobox } from "../_components/VendorCombobox";
 import { useQueryClient } from "@tanstack/react-query";
 
 export type { DetailRow, FieldValues } from "@/lib/expense-form-values";
@@ -258,66 +259,6 @@ function CategorySelect({
               >
                 {c.icon ? `${c.icon} ` : ""}
                 {c.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// 지출처는 사전 등록이 필수가 아님 — 기존 항목 자동완성 선택 또는 자유 입력한 새 이름 그대로 제출.
-// 실제 신규 등록 여부는 서버 액션(find-or-create)에서 결정되므로 여기서는 확인 절차 없음.
-function VendorCombobox({
-  vendors,
-  value,
-  onChange,
-}: {
-  vendors: Vendor[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const matches =
-    value.trim().length === 0
-      ? []
-      : vendors
-          .filter((v) => v.name.toLowerCase().includes(value.trim().toLowerCase()))
-          .slice(0, 8);
-
-  return (
-    <div className="relative">
-      <input
-        name="vendorName"
-        type="text"
-        autoComplete="off"
-        lang="ko"
-        placeholder="지출처 입력 (예: 이마트)"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        onBlur={() => setIsOpen(false)}
-        className={inputClassName}
-      />
-      {isOpen && matches.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#e2e8f0] bg-white shadow-sm">
-          {matches.map((v) => (
-            <li key={v.id}>
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(v.name);
-                  setIsOpen(false);
-                }}
-                className="block w-full px-3.5 py-2 text-left text-sm hover:bg-[var(--paylens-bg)]"
-              >
-                {v.name}
               </button>
             </li>
           ))}
@@ -715,6 +656,7 @@ export function ExpenseEntryForm({
             vendors={vendors}
             value={values.vendorName}
             onChange={(v) => setValues({ ...values, vendorName: v })}
+            inputClassName={inputClassName}
           />
           <FieldError messages={errors.vendorName} />
         </div>

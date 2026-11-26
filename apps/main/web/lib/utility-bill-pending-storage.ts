@@ -16,6 +16,9 @@ export interface ActiveUtilityBillItemInfo {
 interface PendingExtractionPayload {
   extraction: UtilityBillExtraction;
   replaceExisting: boolean;
+  // [F-2-4-6] 업로드 화면에서 고른 지출처 — 항목 선정 화면을 거쳐 돌아와도 유지돼야 한다.
+  // 배포 직후 이전 형식으로 저장된 세션 값엔 없을 수 있어 optional.
+  vendorName?: string;
   activeItems: ActiveUtilityBillItemInfo[];
   fileName: string;
   fileType: string;
@@ -25,6 +28,7 @@ interface PendingExtractionPayload {
 export interface PendingExtraction {
   extraction: UtilityBillExtraction;
   replaceExisting: boolean;
+  vendorName: string | null;
   activeItems: ActiveUtilityBillItemInfo[];
   file: File;
 }
@@ -50,11 +54,13 @@ export async function savePendingExtraction(
   extraction: UtilityBillExtraction,
   file: File,
   replaceExisting: boolean,
-  activeItems: ActiveUtilityBillItemInfo[]
+  activeItems: ActiveUtilityBillItemInfo[],
+  vendorName: string
 ): Promise<void> {
   const payload: PendingExtractionPayload = {
     extraction,
     replaceExisting,
+    vendorName,
     activeItems,
     fileName: file.name,
     fileType: file.type,
@@ -71,6 +77,7 @@ export function loadPendingExtraction(): PendingExtraction | null {
   return {
     extraction: payload.extraction,
     replaceExisting: payload.replaceExisting,
+    vendorName: payload.vendorName ?? null,
     activeItems: payload.activeItems,
     file: dataUrlToFile(payload.fileDataUrl, payload.fileName, payload.fileType),
   };

@@ -9,6 +9,11 @@ import { parseQuantityText } from "@/lib/quantity-parse";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { resolveCanonicalItemId } from "@/lib/item-merge";
 import { invalidateItemTop10Cache } from "@/lib/stats-cache";
+import { resolveVendorId } from "@/lib/vendor-resolve";
+import {
+  createManualUtilityBillRecordIfNeeded,
+  syncUtilityBillRecordOnUpdate,
+} from "@/lib/utility-bill-record-sync";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -19,7 +24,7 @@ const LIST_PATH = "/expenses";
 // 캘린더 화면(F-1-10-1)도 force-dynamic이지만, 빠른 입력 팝업(F-1-10-2)은 페이지 이동 없이
 // 같은 라우트에 머무르므로 Router Cache 무효화를 위해 명시적으로 함께 재검증.
 const CALENDAR_PATH = "/expenses/calendar";
-// 관리비 카테고리 지출은 createManualUtilityBillRecordIfNeeded/syncManualUtilityBillPeriod를 통해
+// 관리비 카테고리 지출은 createManualUtilityBillRecordIfNeeded/syncUtilityBillRecordOnUpdate를 통해
 // 관리비 통계 화면(F-2-3)의 집계 대상이 된다 — 그 화면도 force-dynamic이지만 Router Cache는
 // 별도 무효화가 필요해 위 두 경로와 함께 재검증(utility-bills/actions.ts의 saveUtilityBillAction과 동일 이유).
 const UTILITY_STATS_PATH = "/utility-bills/stats";
@@ -29,38 +34,6 @@ export type ExpenseActionState =
   | { status: "success" }
   | { status: "error"; message: string }
   | { status: "validation_error"; errors: Partial<Record<string, string[]>> };
-
-// 지출처는 사전 등록이 필수가 아님 — 정확히 일치하는 이름이 있으면 재사용, 없으면 그 자리에서 새로 등록.
-// 2026-07-03 PM 결정: 지출처는 여러 카테고리의 지출이 섞일 수 있어(예: GS슈퍼에서 식료품+의류) 특정
-// 카테고리에 고정 매칭하지 않음 — default_category_id는 항상 null(컬럼 자체는 유지, 지출처 관리 화면 참고).
-async function resolveVendorId(
-  supabase: SupabaseServerClient,
-  userId: string,
-  vendorName: string
-): Promise<string | null> {
-  const { data: existing } = await supabase
-    .from("vendor")
-    .select("id, is_active")
-    .eq("user_id", userId)
-    .eq("name", vendorName)
-    .maybeSingle();
-
-  if (existing) {
-    // 비활성화했던 지출처를 다시 지출 입력에 쓰면 자동완성 목록에도 다시 노출되도록 재활성화.
-    if (!existing.is_active) {
-      await supabase.from("vendor").update({ is_active: true }).eq("id", existing.id);
-    }
-    return existing.id;
-  }
-
-  const { data: created } = await supabase
-    .from("vendor")
-    .insert({ user_id: userId, name: vendorName })
-    .select("id")
-    .single();
-
-  return created?.id ?? null;
-}
 
 type ResolvableItem = {
   id: string;
@@ -111,64 +84,6 @@ async function resolveItemId(
 
   if (created) cache.set(cacheKey, created.id);
   return created?.id ?? null;
-}
-
-// [F-2-4-3] 카테고리="관리비/공과금"으로 지출을 직접 입력하면 UTILITY_BILL_RECORD(source='MANUAL')도
-// 함께 생성 — 이 훅이 없으면 관리비 명세서 업로드 화면(F-2-1-2)의 "이미 수동 등록 존재 시 업로드
-// 차단"(케이스 A)이 영원히 발동하지 않는다(화면설계 §4-1, PM 확정). 같은 달에 이미 등록(업로드/수동
-// 무관)이 있으면 UNIQUE(user_id, period) 위반으로 실패하는데, 그 경우 방금 만든 transaction을
-// 보상 삭제하고 일반 저장 실패로 처리한다(transaction_detail은 FK ON DELETE CASCADE로 함께 삭제됨).
-async function createManualUtilityBillRecordIfNeeded(
-  supabase: SupabaseServerClient,
-  userId: string,
-  categoryId: string,
-  transactionId: string,
-  occurredAt: string
-): Promise<boolean> {
-  const { data: category } = await supabase
-    .from("category")
-    .select("name")
-    .eq("id", categoryId)
-    .maybeSingle();
-  if (category?.name !== "관리비/공과금") return true;
-
-  const { error } = await supabase.from("utility_bill_record").insert({
-    user_id: userId,
-    period: toYearMonth(occurredAt),
-    source: "MANUAL",
-    transaction_id: transactionId,
-  });
-
-  return !error;
-}
-
-// [F-2-4-3 후속 수정, 2026-07-19 PM 지적] 관리비/공과금으로 직접 등록한 지출(source='MANUAL')의
-// 지출일을 수정 화면에서 바꾸면, UTILITY_BILL_RECORD.period도 그 달로 맞춰 갱신해야 한다 — 이
-// 동기화가 없으면 통계/이력 화면이 최초 등록 시점의 달에 그대로 남아 실제 지출일과 어긋난다(예:
-// 오늘 날짜 기본값으로 등록한 뒤 지출일만 다른 달로 고친 경우). source='UPLOAD'(실제 명세서
-// 업로드로 등록)는 청구월이 지출일과 무관한 값이라 대상이 아니다 — 건드리지 않는다.
-async function syncManualUtilityBillPeriod(
-  supabase: SupabaseServerClient,
-  transactionId: string,
-  occurredAt: string
-): Promise<boolean> {
-  const { data: record } = await supabase
-    .from("utility_bill_record")
-    .select("id, period, source")
-    .eq("transaction_id", transactionId)
-    .maybeSingle();
-  if (!record || record.source !== "MANUAL") return true;
-
-  const newPeriod = toYearMonth(occurredAt);
-  if (newPeriod === record.period) return true;
-
-  // 이미 다른 등록(업로드/수동 무관)이 그 달을 쓰고 있으면 UNIQUE(user_id, period) 위반으로 실패.
-  const { error } = await supabase
-    .from("utility_bill_record")
-    .update({ period: newPeriod })
-    .eq("id", record.id);
-
-  return !error;
 }
 
 // 이름 대소문자 무시 일치로 기존 Unit(시스템 기본+내 커스텀) 재사용, 없으면 사용자 커스텀 단위로 생성.
@@ -338,16 +253,17 @@ export async function addExpenseAction(
       return { status: "error", message: "상세항목 저장에 실패했습니다" };
     }
 
-    const utilityBillOk = await createManualUtilityBillRecordIfNeeded(
-      supabase,
-      user.id,
+    const utilityBill = await createManualUtilityBillRecordIfNeeded(supabase, {
+      userId: user.id,
+      transactionId: transaction.id,
       categoryId,
-      transaction.id,
-      occurredAt
-    );
-    if (!utilityBillOk) {
+      vendorId,
+      vendorName,
+      occurredAt,
+    });
+    if (!utilityBill.ok) {
       await supabase.from("transaction").delete().eq("id", transaction.id);
-      return { status: "error", message: "지출 저장에 실패했습니다" };
+      return { status: "error", message: utilityBill.message };
     }
 
     await invalidateItemTop10Cache(user.id, toYearMonth(occurredAt));
@@ -398,16 +314,17 @@ export async function addExpenseAction(
   if (transactionError || !transaction)
     return { status: "error", message: "지출 저장에 실패했습니다" };
 
-  const utilityBillOk = await createManualUtilityBillRecordIfNeeded(
-    supabase,
-    user.id,
+  const utilityBill = await createManualUtilityBillRecordIfNeeded(supabase, {
+    userId: user.id,
+    transactionId: transaction.id,
     categoryId,
-    transaction.id,
-    occurredAt
-  );
-  if (!utilityBillOk) {
+    vendorId,
+    vendorName,
+    occurredAt,
+  });
+  if (!utilityBill.ok) {
     await supabase.from("transaction").delete().eq("id", transaction.id);
-    return { status: "error", message: "지출 저장에 실패했습니다" };
+    return { status: "error", message: utilityBill.message };
   }
 
   revalidatePath(PATH);
@@ -532,6 +449,17 @@ export async function updateExpenseAction(
 
     const totalAmount = detailRows.reduce((sum, d) => sum + d.amount, 0);
 
+    // 충돌 시 지출이 바뀌지 않은 채 거절되도록 트랜잭션 UPDATE보다 먼저 동기화한다.
+    const utilityBill = await syncUtilityBillRecordOnUpdate(supabase, {
+      userId: user.id,
+      transactionId: id,
+      categoryId,
+      vendorId,
+      vendorName,
+      occurredAt,
+    });
+    if (!utilityBill.ok) return { status: "error", message: utilityBill.message };
+
     const { error: transactionError } = await supabase
       .from("transaction")
       .update({
@@ -555,13 +483,6 @@ export async function updateExpenseAction(
       p_details: detailRows,
     });
     if (detailError) return { status: "error", message: "상세항목 저장에 실패했습니다" };
-
-    if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
-      return {
-        status: "error",
-        message: "관리비 등록월이 이미 다른 명세서와 겹쳐 지출일을 반영하지 못했습니다",
-      };
-    }
 
     // 날짜를 다른 달로 옮긴 경우 이전/이후 두 기간 캐시 모두 무효화(같으면 한 번만).
     const newPeriod = toYearMonth(occurredAt);
@@ -589,6 +510,17 @@ export async function updateExpenseAction(
     const vendorId = await resolveVendorId(supabase, user.id, vendorName);
     if (!vendorId) return { status: "error", message: "지출처 등록에 실패했습니다" };
 
+    // 충돌 시 지출이 바뀌지 않은 채 거절되도록 트랜잭션 UPDATE보다 먼저 동기화한다.
+    const utilityBill = await syncUtilityBillRecordOnUpdate(supabase, {
+      userId: user.id,
+      transactionId: id,
+      categoryId,
+      vendorId,
+      vendorName,
+      occurredAt,
+    });
+    if (!utilityBill.ok) return { status: "error", message: utilityBill.message };
+
     const { error: transactionError } = await supabase
       .from("transaction")
       .update({
@@ -610,13 +542,6 @@ export async function updateExpenseAction(
       p_details: [],
     });
     if (detailError) return { status: "error", message: "상세항목 정리에 실패했습니다" };
-
-    if (!(await syncManualUtilityBillPeriod(supabase, id, occurredAt))) {
-      return {
-        status: "error",
-        message: "관리비 등록월이 이미 다른 명세서와 겹쳐 지출일을 반영하지 못했습니다",
-      };
-    }
 
     // 상세모드였다가 직접입력으로 바뀐 경우 이전 기간의 item_top10 캐시가 낡은 값을 들고 있을 수
     // 있어 무효화(원래도 직접입력이었다면 캐시에 항목 자체가 없어 DEL이 그냥 no-op).

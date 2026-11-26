@@ -23,6 +23,11 @@ import {
   clearPendingExtraction,
 } from "@/lib/utility-bill-pending-storage";
 import { UtilityBillItemBreakdown } from "../_components/UtilityBillItemBreakdown";
+import { VendorCombobox, type VendorOption } from "../../_components/VendorCombobox";
+import { DEFAULT_UTILITY_VENDOR_NAME } from "@/lib/utility-bill-record-sync";
+
+const vendorInputClassName =
+  "h-10 w-full rounded-lg border border-[#e2e8f0] bg-white px-3 text-sm outline-none focus:border-[var(--paylens-action)] focus:ring-2 focus:ring-[var(--paylens-action)]/15 disabled:bg-[var(--paylens-bg)]";
 
 interface PeriodStatus {
   period: string;
@@ -41,12 +46,14 @@ type Stage =
       extraction: SuccessExtraction;
       file: File;
       replaceExisting: boolean;
+      vendorName: string;
     }
   | {
       step: "select-payment";
       extraction: SuccessExtraction;
       file: File;
       replaceExisting: boolean;
+      vendorName: string;
       options: PaymentMethodOption[];
       defaultPaymentMethodId: string | undefined;
     }
@@ -55,6 +62,7 @@ type Stage =
       extraction: SuccessExtraction;
       file: File;
       replaceExisting: boolean;
+      vendorName: string;
       paymentMethodId: string;
       occurredAt: string;
     }
@@ -72,9 +80,21 @@ function formatMonthLabel(period: string): string {
 // 항목 선정 화면(/utility-bills/upload/items)을 거쳐 → 결제수단/지출일 확정 →
 // 저장(TRANSACTION + UTILITY_BILL_RECORD + UTILITY_BILL_ITEM_VALUE 생성, 원본 파일
 // Storage 업로드).
-export function UtilityBillUploadSection({ recentStatus }: { recentStatus: PeriodStatus[] }) {
+export function UtilityBillUploadSection({
+  recentStatus,
+  defaultVendorName,
+  vendors,
+}: {
+  recentStatus: PeriodStatus[];
+  defaultVendorName: string;
+  vendors: VendorOption[];
+}) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>({ step: "idle" });
+  // [F-2-4-6] 업로드 지출처 — 사진을 고르기 전에 정해서, 재업로드 충돌 판정(케이스 A/B)이
+  // 처음부터 이 지출처 기준으로 이뤄지게 한다. 같은 달의 다른 지출처(예: 도시가스) 등록은
+  // 충돌이 아니다. 기본값은 직전 업로드 지출처(최초면 "관리사무소").
+  const [vendorName, setVendorName] = useState(defaultVendorName);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,22 +108,37 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
     const labels = extraction.items.map((i) => i.label);
     const formatMatch = await checkUtilityBillFormatMatchAction(labels);
     if (!formatMatch.isSameFormat) {
-      await savePendingExtraction(extraction, file, replaceExisting, formatMatch.activeItems);
+      await savePendingExtraction(
+        extraction,
+        file,
+        replaceExisting,
+        formatMatch.activeItems,
+        vendorName
+      );
       router.push("/utility-bills/upload/items");
       return;
     }
-    await resolvePaymentMethod(extraction, file, replaceExisting);
+    await resolvePaymentMethod(extraction, file, replaceExisting, vendorName);
   }
 
   // [PM 결정, 2026-07-26] "직전 결제수단으로 등록할까요?" 확인 팝업 없이 항상 결제수단/
   // 지출일 선택 팝업으로 바로 이어간다 — 대신 직전(지난달) 등록 결제수단을 선택 목록에서
   // 기본값으로 미리 선택해둔다.
+  // 충돌 판정에 쓴 지출처를 stage에 실어 저장까지 그대로 넘긴다 — 항목 선정 화면을 거쳐
+  // 돌아온 경우(sessionStorage 복원)에도 같은 경로로 전달돼 별도 state 동기화가 필요 없다.
   async function resolvePaymentMethod(
     extraction: SuccessExtraction,
     file: File,
-    replaceExisting: boolean
+    replaceExisting: boolean,
+    stageVendorName: string
   ) {
-    setStage({ step: "checking-payment", extraction, file, replaceExisting });
+    setStage({
+      step: "checking-payment",
+      extraction,
+      file,
+      replaceExisting,
+      vendorName: stageVendorName,
+    });
     const [recent, options] = await Promise.all([
       getRecentPaymentMethodAction(),
       getActivePaymentMethodsAction(),
@@ -113,6 +148,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
       extraction,
       file,
       replaceExisting,
+      vendorName: stageVendorName,
       options,
       defaultPaymentMethodId: recent.found ? recent.paymentMethodId : undefined,
     });
@@ -127,10 +163,20 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
     if (!pending) return;
     clearPendingExtraction();
     const extraction: SuccessExtraction = { status: "success", ...pending.extraction };
-    void resolvePaymentMethod(extraction, pending.file, pending.replaceExisting);
+    void resolvePaymentMethod(
+      extraction,
+      pending.file,
+      pending.replaceExisting,
+      // 배포 직후 이전 형식으로 저장된 세션 값엔 지출처가 없어 이전 고정값으로 처리한다.
+      pending.vendorName || DEFAULT_UTILITY_VENDOR_NAME
+    );
   }, []);
 
   async function processFile(file: File) {
+    if (vendorName.trim().length === 0) {
+      setStage({ step: "error", message: "지출처를 입력해 주세요" });
+      return;
+    }
     setStage({ step: "processing" });
 
     try {
@@ -153,7 +199,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         return;
       }
 
-      const conflict = await checkPeriodConflictAction(extraction.period);
+      const conflict = await checkPeriodConflictAction(extraction.period, vendorName);
       if (conflict.status === "blocked") {
         setStage({ step: "blocked", period: extraction.period });
         return;
@@ -177,7 +223,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
 
   async function handleSave() {
     if (stage.step !== "ready") return;
-    const { extraction, file, replaceExisting, paymentMethodId, occurredAt } = stage;
+    const { extraction, file, replaceExisting, vendorName, paymentMethodId, occurredAt } = stage;
 
     setStage({ step: "saving" });
     const formData = new FormData();
@@ -185,6 +231,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
     formData.set("paymentMethodId", paymentMethodId);
     formData.set("occurredAt", occurredAt);
     formData.set("replaceExisting", String(replaceExisting));
+    formData.set("vendorName", vendorName);
     formData.set("file", file);
 
     const result = await saveUtilityBillAction(formData);
@@ -196,6 +243,10 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
   }
 
   const isProcessing = stage.step === "processing" || stage.step === "saving";
+  // 충돌 판정이 끝난 뒤 지출처가 바뀌면 판정과 저장 대상이 어긋나므로, 새 업로드를 시작할
+  // 수 있는 상태에서만 수정 가능하게 한다.
+  const canEditVendor = stage.step === "idle" || stage.step === "error";
+  const lockedVendorName = "vendorName" in stage ? stage.vendorName : vendorName;
   const showItems = stage.step === "ready";
 
   // usageTable(사용량별 지침표)은 전월/당월/사용량 참고용일 뿐, 관리비납입 금액은 모두
@@ -237,6 +288,26 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         }`}
         style={{ borderRadius: "var(--border-radius-m)", boxShadow: "var(--card-shadow)" }}
       >
+        <div className="mx-auto mb-5 max-w-xs text-left">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-text-primary)]">
+            지출처
+          </label>
+          {canEditVendor ? (
+            <VendorCombobox
+              vendors={vendors}
+              value={vendorName}
+              onChange={setVendorName}
+              inputClassName={vendorInputClassName}
+              placeholder="지출처 입력 (예: 오피스텔 관리비)"
+            />
+          ) : (
+            <input value={lockedVendorName} disabled className={vendorInputClassName} />
+          )}
+          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+            지출 입력에서 직접 등록한 관리비와 같은 지출처를 선택하면 중복 등록을 막을 수 있습니다.
+          </p>
+        </div>
+
         <p className="text-sm text-[var(--color-text-secondary)]">
           여기로 사진을 끌어다 놓거나, 아래 버튼으로 촬영/선택해주세요
         </p>
@@ -278,6 +349,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
             {stage.extraction.period} 청구월 · 총액{" "}
             {stage.extraction.total?.toLocaleString("ko-KR") ?? "-"}원
           </p>
+          <p className="text-xs text-[var(--color-text-secondary)]">지출처: {stage.vendorName}</p>
 
           {mismatch && (
             <p className="text-xs text-[var(--paylens-accent)]">
@@ -329,7 +401,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         onOpenChange={(open) => {
           if (!open) setStage({ step: "idle" });
         }}
-        message={`이미 등록한 ${stage.step === "blocked" ? formatMonthLabel(stage.period) : ""} 관리비 내역이 있습니다.\n관리비 내역을 삭제 후 명세서를 업로드할 수 있습니다.`}
+        message={`이미 등록한 ${stage.step === "blocked" ? formatMonthLabel(stage.period) : ""} '${vendorName}' 관리비 내역이 있습니다.\n관리비 내역을 삭제 후 명세서를 업로드할 수 있습니다.`}
       />
 
       <ConfirmDialog
@@ -337,7 +409,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
         onOpenChange={(open) => {
           if (!open) setStage({ step: "idle" });
         }}
-        message={`이미 등록된 ${stage.step === "confirm-reupload" ? formatMonthLabel(stage.extraction.period ?? "") : ""} 명세가 있습니다.\n재업로드 할 경우 기존 데이터는 삭제됩니다.`}
+        message={`이미 등록된 ${stage.step === "confirm-reupload" ? formatMonthLabel(stage.extraction.period ?? "") : ""} '${vendorName}' 명세가 있습니다.\n재업로드 할 경우 기존 데이터는 삭제됩니다.`}
         confirmLabel="재업로드"
         onConfirm={() => {
           if (stage.step === "confirm-reupload") {
@@ -362,6 +434,7 @@ export function UtilityBillUploadSection({ recentStatus }: { recentStatus: Perio
                 extraction: stage.extraction,
                 file: stage.file,
                 replaceExisting: stage.replaceExisting,
+                vendorName: stage.vendorName,
                 paymentMethodId,
                 occurredAt,
               });

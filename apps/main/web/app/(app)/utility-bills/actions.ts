@@ -18,6 +18,9 @@ import {
   normalizeLabel,
 } from "@/lib/utility-bill-format-match";
 import type { ActiveUtilityBillItemInfo } from "@/lib/utility-bill-pending-storage";
+import { expenseSchema } from "@/lib/expense-schemas";
+import { resolveVendorId } from "@/lib/vendor-resolve";
+import { UNIQUE_VIOLATION, duplicateUtilityBillMessage } from "@/lib/utility-bill-record-sync";
 
 // [S-2-5]에서 만든 비공개 버킷. 경로 규칙: {user_id}/{period}.{ext}.
 // "use server" 파일을 클라이언트 컴포넌트가 import하면 Next.js가 모든 export를 서버
@@ -116,9 +119,15 @@ export type ConflictCheckResult =
   | { status: "confirm_needed" }; // 케이스 B — 이미 업로드 존재, 재업로드 확인 필요
 
 /**
- * OCR로 확정된 청구월(period) 기준으로 기존 등록 여부를 확인한다(화면설계 §1-2/1-3).
+ * OCR로 확정된 청구월(period) + 사용자가 고른 업로드 지출처 기준으로 기존 등록 여부를 확인한다
+ * (화면설계 §1-2/1-3).
+ * [F-2-4-5] 같은 달에 지출처가 다른 등록(예: 도시가스)은 충돌이 아니다. 지출처 조건 없이
+ * maybeSingle()로 조회하면 같은 달 2건 이상일 때 data가 null로 와 "등록 없음"으로 오판한다.
  */
-export async function checkPeriodConflictAction(period: string): Promise<ConflictCheckResult> {
+export async function checkPeriodConflictAction(
+  period: string,
+  vendorName: string
+): Promise<ConflictCheckResult> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -127,8 +136,9 @@ export async function checkPeriodConflictAction(period: string): Promise<Conflic
 
   const { data: existing } = await supabase
     .from("utility_bill_record")
-    .select("source")
+    .select("source, vendor!inner(name)")
     .eq("period", period)
+    .eq("vendor.name", vendorName.trim())
     .maybeSingle();
 
   if (!existing) return { status: "none" };
@@ -210,7 +220,6 @@ export async function deactivateUnselectedUtilityBillItemsAction(
 }
 
 const CATEGORY_NAME = "관리비/공과금";
-const VENDOR_NAME = "관리사무소";
 
 export type RecentPaymentMethodResult = { found: true; paymentMethodId: string } | { found: false };
 
@@ -299,15 +308,28 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
   const occurredAtDate = formData.get("occurredAt");
   const replaceExisting = formData.get("replaceExisting") === "true";
   const file = formData.get("file");
+  const vendorRaw = formData.get("vendorName");
 
   if (
     typeof extractionRaw !== "string" ||
     typeof paymentMethodId !== "string" ||
     typeof occurredAtDate !== "string" ||
+    typeof vendorRaw !== "string" ||
     !(file instanceof File)
   ) {
     return { status: "error", message: "잘못된 요청입니다" };
   }
+
+  // [F-2-4-6] 업로드 지출처는 "관리사무소" 고정이 아니라 사용자가 업로드 화면에서 고른 값 —
+  // 지출 입력 화면과 같은 검증 규칙(expenseSchema.vendorName)을 그대로 쓴다.
+  const vendorParsed = expenseSchema.shape.vendorName.safeParse(vendorRaw);
+  if (!vendorParsed.success) {
+    return {
+      status: "error",
+      message: vendorParsed.error.issues[0]?.message ?? "잘못된 요청입니다",
+    };
+  }
+  const vendorName = vendorParsed.data;
 
   let extraction: UtilityBillExtraction;
   try {
@@ -330,30 +352,15 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
     return { status: "error", message: "관리비/공과금 카테고리를 찾을 수 없습니다" };
   }
 
-  let vendorId: string;
-  const { data: existingVendor } = await supabase
-    .from("vendor")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("name", VENDOR_NAME)
-    .maybeSingle();
-  if (existingVendor) {
-    vendorId = existingVendor.id;
-  } else {
-    const { data: newVendor, error: vendorErr } = await supabase
-      .from("vendor")
-      .insert({ user_id: user.id, name: VENDOR_NAME })
-      .select("id")
-      .single();
-    if (vendorErr || !newVendor) return { status: "error", message: "지출처 생성에 실패했습니다" };
-    vendorId = newVendor.id;
-  }
+  const vendorId = await resolveVendorId(supabase, user.id, vendorName);
+  if (!vendorId) return { status: "error", message: "지출처 생성에 실패했습니다" };
 
   if (replaceExisting) {
     const { data: existingRecord } = await supabase
       .from("utility_bill_record")
       .select("transaction_id")
       .eq("period", extraction.period)
+      .eq("vendor_id", vendorId)
       .maybeSingle();
     if (existingRecord) {
       // transaction 삭제 → utility_bill_record(ON DELETE CASCADE) → utility_bill_item_value
@@ -391,12 +398,24 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
     .insert({
       user_id: user.id,
       period: extraction.period,
+      vendor_id: vendorId,
       transaction_id: tx.id,
       source: "UPLOAD",
     })
     .select("id")
     .single();
-  if (recordErr || !record) return { status: "error", message: "관리비 등록에 실패했습니다" };
+  if (recordErr || !record) {
+    // 레코드 없이 지출만 남지 않도록 방금 만든 transaction을 보상 삭제한다.
+    await supabase.from("transaction").delete().eq("id", tx.id);
+    console.error("[saveUtilityBillAction] utility_bill_record insert 실패:", recordErr);
+    return {
+      status: "error",
+      message:
+        recordErr?.code === UNIQUE_VIOLATION
+          ? duplicateUtilityBillMessage(vendorName)
+          : "관리비 등록에 실패했습니다",
+    };
+  }
 
   // usageTable(사용량별 지침표)의 전기/수도 사용요금은 items의 "전기료(세대)"/
   // "수도료(세대)"로 이미 금액이 반영돼 있다(2026-07-14, extractUtilityFeeItems) — 여기서
@@ -466,7 +485,8 @@ export async function saveUtilityBillAction(formData: FormData): Promise<SaveUti
   // 원본 파일을 이제서야 Storage에 저장한다(F-2-1-2에서 청구월 확정 전까지 미뤄둔 단계).
   // 같은 경로에 이미 파일이 있으면(재업로드) createSignedUploadUrl이 거부하므로 먼저 제거.
   const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `${user.id}/${extraction.period}.${ext}`;
+  // [F-2-4-6] 같은 달에 지출처가 다른 업로드가 서로 덮어쓰지 않도록 vendor_id를 경로에 포함.
+  const path = `${user.id}/${extraction.period}_${vendorId}.${ext}`;
   await supabase.storage.from(UTILITY_BILLS_BUCKET).remove([path]);
   const { data: signed } = await supabase.storage
     .from(UTILITY_BILLS_BUCKET)
