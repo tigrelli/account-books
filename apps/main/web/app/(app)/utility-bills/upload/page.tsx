@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@account-books/supabase-client";
 import { UtilityBillUploadSection } from "./UtilityBillUploadSection";
+import { DEFAULT_UTILITY_VENDOR_NAME } from "@/lib/utility-bill-record-sync";
 
 // 지출 목록/예산 화면과 동일 원칙 — 업로드 직후 같은 경로를 다시 볼 수 있어 캐시하지 않는다.
 export const dynamic = "force-dynamic";
@@ -25,10 +26,18 @@ export default async function UtilityBillUploadPage() {
 
   const periods = recentPeriods(3);
 
-  const { data: records } = await supabase
-    .from("utility_bill_record")
-    .select("period")
-    .in("period", periods);
+  const [{ data: records }, { data: lastUpload }, { data: vendors }] = await Promise.all([
+    supabase.from("utility_bill_record").select("period").in("period", periods),
+    // [F-2-4-6] 업로드 지출처 기본값 = 직전 업로드에 쓴 지출처(데이터구조설계 §2-4).
+    supabase
+      .from("utility_bill_record")
+      .select("vendor(name)")
+      .eq("source", "UPLOAD")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("vendor").select("id, name").eq("is_active", true).order("name"),
+  ]);
 
   const registeredPeriods = new Set((records ?? []).map((r) => r.period));
   const recentStatus = periods.map((period) => ({
@@ -64,7 +73,11 @@ export default async function UtilityBillUploadPage() {
           </div>
         </div>
 
-        <UtilityBillUploadSection recentStatus={recentStatus} />
+        <UtilityBillUploadSection
+          recentStatus={recentStatus}
+          defaultVendorName={lastUpload?.vendor.name ?? DEFAULT_UTILITY_VENDOR_NAME}
+          vendors={vendors ?? []}
+        />
       </div>
     </div>
   );

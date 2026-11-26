@@ -9,6 +9,7 @@ import { parseQuantityText } from "@/lib/quantity-parse";
 import { itemAliasesToArray } from "@/lib/item-aliases";
 import { resolveCanonicalItemId } from "@/lib/item-merge";
 import { invalidateItemTop10Cache } from "@/lib/stats-cache";
+import { resolveVendorId } from "@/lib/vendor-resolve";
 import {
   createManualUtilityBillRecordIfNeeded,
   syncUtilityBillRecordOnUpdate,
@@ -33,38 +34,6 @@ export type ExpenseActionState =
   | { status: "success" }
   | { status: "error"; message: string }
   | { status: "validation_error"; errors: Partial<Record<string, string[]>> };
-
-// 지출처는 사전 등록이 필수가 아님 — 정확히 일치하는 이름이 있으면 재사용, 없으면 그 자리에서 새로 등록.
-// 2026-07-03 PM 결정: 지출처는 여러 카테고리의 지출이 섞일 수 있어(예: GS슈퍼에서 식료품+의류) 특정
-// 카테고리에 고정 매칭하지 않음 — default_category_id는 항상 null(컬럼 자체는 유지, 지출처 관리 화면 참고).
-async function resolveVendorId(
-  supabase: SupabaseServerClient,
-  userId: string,
-  vendorName: string
-): Promise<string | null> {
-  const { data: existing } = await supabase
-    .from("vendor")
-    .select("id, is_active")
-    .eq("user_id", userId)
-    .eq("name", vendorName)
-    .maybeSingle();
-
-  if (existing) {
-    // 비활성화했던 지출처를 다시 지출 입력에 쓰면 자동완성 목록에도 다시 노출되도록 재활성화.
-    if (!existing.is_active) {
-      await supabase.from("vendor").update({ is_active: true }).eq("id", existing.id);
-    }
-    return existing.id;
-  }
-
-  const { data: created } = await supabase
-    .from("vendor")
-    .insert({ user_id: userId, name: vendorName })
-    .select("id")
-    .single();
-
-  return created?.id ?? null;
-}
 
 type ResolvableItem = {
   id: string;

@@ -5,9 +5,12 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient
 
 export const UTILITY_CATEGORY_NAME = "관리비/공과금";
 
+// [F-2-4-6] 업로드 지출처 기본값 — 직전 업로드가 없을 때(최초 업로드) 쓴다(데이터구조설계 §2-4).
+export const DEFAULT_UTILITY_VENDOR_NAME = "관리사무소";
+
 // PostgreSQL unique_violation — UNIQUE(user_id, period, vendor_id) 충돌을 다른 실패와 구분해
 // "왜 막혔는지"를 사용자에게 보여주기 위해 사용(예전엔 일반 저장 실패 문구로 원인이 가려졌다).
-const UNIQUE_VIOLATION = "23505";
+export const UNIQUE_VIOLATION = "23505";
 
 export type UtilityBillRecordSyncResult = { ok: true } | { ok: false; message: string };
 

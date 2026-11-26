@@ -69,7 +69,7 @@ export default function UtilityBillItemsPage() {
     );
   }
 
-  const { extraction, activeItems, replaceExisting, file } = pending;
+  const { extraction, activeItems, replaceExisting, vendorName, file } = pending;
 
   // 기존에 지정해둔 항목인데 이번 추출 결과엔 라벨이 없는 것 — 화면설계 §2-2 "이번 달에
   // 없음" 구획. sourceLabels 중 하나라도 이번 추출 라벨과 일치하면 "있음"으로 본다
@@ -98,7 +98,8 @@ export default function UtilityBillItemsPage() {
       { ...extraction, items: filteredItems },
       file,
       replaceExisting,
-      activeItems
+      activeItems,
+      vendorName ?? ""
     );
     router.push("/utility-bills/upload");
   }
