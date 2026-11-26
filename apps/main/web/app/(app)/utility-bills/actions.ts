@@ -102,7 +102,10 @@ export async function extractUtilityBillAction(
     const ocrResult = await provider.extractText(buffer);
     const extraction = extractUtilityBill(ocrResult);
     return { status: "success", ...extraction };
-  } catch {
+  } catch (error) {
+    // 사용자에겐 일반 문구만 보여주되 원인은 서버 로그에 남긴다 — 예전엔 여기서 에러를 그대로
+    // 삼켜서 운영(Vercel)에서 폰 업로드가 실패했을 때 원인을 추적할 수 없었다(2026-10-26).
+    console.error("[extractUtilityBillAction] OCR 실패:", error);
     return { status: "error", message: "OCR 처리에 실패했습니다" };
   }
 }
