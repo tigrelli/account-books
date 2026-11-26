@@ -13,19 +13,19 @@ interface VisionSymbol {
 
 interface VisionWord {
   boundingBox?: { vertices?: VisionVertex[] };
-  symbols: VisionSymbol[];
+  symbols?: VisionSymbol[];
 }
 
 interface VisionParagraph {
-  words: VisionWord[];
+  words?: VisionWord[];
 }
 
 interface VisionBlock {
-  paragraphs: VisionParagraph[];
+  paragraphs?: VisionParagraph[];
 }
 
 interface VisionPage {
-  blocks: VisionBlock[];
+  blocks?: VisionBlock[];
 }
 
 interface VisionFullTextAnnotation {
@@ -66,7 +66,10 @@ export class GoogleVisionProvider implements OCRProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Google Vision API 호출 실패: ${response.status}`);
+      // 상태코드만으로는 키 오류/결제/할당량을 구분할 수 없어 Google이 준 사유를 같이 남긴다.
+      // 응답 본문엔 요청 URL(?key=)이 포함되지 않아 키가 로그에 노출되지 않는다.
+      const detail = (await response.text()).slice(0, 500);
+      throw new Error(`Google Vision API 호출 실패: ${response.status} ${detail}`);
     }
 
     const data = (await response.json()) as VisionAnnotateResponse;
@@ -79,12 +82,14 @@ export class GoogleVisionProvider implements OCRProvider {
     const blocks: OCRTextBlock[] = [];
     let regionId = 0;
 
+    // Vision 응답(proto3 JSON)은 빈 배열 필드를 아예 생략한다 — 그림/바코드 등 텍스트 없는
+    // 블록이 섞인 사진에서 paragraphs/words가 undefined로 올 수 있어 모두 ?? []로 방어한다.
     for (const page of result?.fullTextAnnotation?.pages ?? []) {
-      for (const block of page.blocks) {
-        for (const paragraph of block.paragraphs) {
-          for (const word of paragraph.words) {
+      for (const block of page.blocks ?? []) {
+        for (const paragraph of block.paragraphs ?? []) {
+          for (const word of paragraph.words ?? []) {
             blocks.push({
-              text: word.symbols.map((s) => s.text).join(""),
+              text: (word.symbols ?? []).map((s) => s.text).join(""),
               boundingBox: (word.boundingBox?.vertices ?? []).map((v) => ({
                 x: v.x ?? 0,
                 y: v.y ?? 0,
